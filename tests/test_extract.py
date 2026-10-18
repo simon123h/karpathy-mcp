@@ -3,9 +3,10 @@ from xml.sax.saxutils import escape
 
 import pytest
 
-import server
-from extract import ExtractError, docx_to_markdown
-from server import NotesIndex, parse_note
+from mcp_markdown import parsing
+from mcp_markdown.extract import ExtractError, docx_to_markdown
+from mcp_markdown.index import NotesIndex
+from mcp_markdown.parsing import parse_note
 
 NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 
@@ -125,7 +126,7 @@ def test_corrupt_docx_indexed_empty_and_not_retried(index, monkeypatch):
     assert idx.sync() == {"added": 1, "updated": 0, "removed": 0, "total": 1}
     assert idx.list("") == [("bad.docx", "bad")]
     calls = []
-    monkeypatch.setattr(server, "docx_to_markdown", lambda p: calls.append(p) or "")
+    monkeypatch.setattr(parsing, "docx_to_markdown", lambda p: calls.append(p) or "")
     assert idx.sync()["updated"] == 0 and calls == []
 
 

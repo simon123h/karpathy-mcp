@@ -1,3 +1,4 @@
+import argparse
 import os
 import sqlite3
 import threading
@@ -5,10 +6,10 @@ import time
 
 import pytest
 
-import argparse
-
-from server import (NotesIndex, default_db_path, extract_section, format_outline, parse_extensions,
-                    parse_note)
+from mcp_markdown.index import NotesIndex
+from mcp_markdown.parsing import (extract_section, format_outline, parse_extensions,
+                                  parse_note)
+from mcp_markdown.server import default_db_path
 
 
 @pytest.fixture
