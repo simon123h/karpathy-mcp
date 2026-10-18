@@ -42,7 +42,13 @@ pytest -q
 ```
 
 `pyproject.toml` sets `pythonpath = ["src"]`, so the tests also run without installing the package. They use
-temporary directories only and finish in about a second.
+temporary directories only and finish in a few seconds.
+
+- `tests/test_index.py`, `tests/test_extract.py`: the index, parsing and `.docx` extraction through their Python APIs.
+- `tests/test_server.py`: the tool layer and CLI wiring, in-process.
+- `tests/test_stdio.py`: **end to end.** Starts `python -m mcp_markdown` as a subprocess and drives it with the MCP
+  SDK's stdio client (handshake, instructions, every tool, path traversal), checks that stdout carries only JSON-RPC,
+  and checks the failure exit for a bad `--notes-dir`.
 
 Conventions for tests:
 
@@ -150,3 +156,15 @@ wheel locally with `pip wheel --no-deps .` if needed.
 The package depends on `mcp>=1.27,<2`. Major version 2 of the SDK renamed `FastMCP` to `MCPServer` and removed
 `mcp.server.fastmcp`, so a looser constraint would install a package that fails on import. Raise or widen the
 range only after running the whole suite, including `tests/test_stdio.py`, against the new version.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on pushes to `main` and on pull requests:
+
+| Job     | What it does                                                                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lint`  | `pre-commit run --all-files` (ruff check and format with the pinned version) and `npx prettier@3.5.1 --check .`                                   |
+| `test`  | `pytest` on Ubuntu, Windows and macOS with Python 3.10 and 3.13, plus Ubuntu with 3.11 and 3.12 (includes the stdio tests)                        |
+| `build` | `python -m build`, installs the wheel into a clean environment and runs `mcp-markdown --help`, which catches missing files and entry-point errors |
+
+The prettier version in the workflow must match the one used locally; update both together with the ruff pin.

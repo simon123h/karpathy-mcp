@@ -97,8 +97,9 @@ docs/               documentation
 
 ## Status
 
-Early (version 0.1.0). Covered by unit tests and in-process tool calls; it has not yet been exercised with a real
-MCP client in production use or on Windows. Known risks and open decisions are listed in
+Early (version 0.1.0). Covered by unit tests and end-to-end stdio tests (the real server driven by an MCP client
+over stdio) on Linux with Python 3.10-3.13. A GitHub Actions workflow for Linux, Windows and macOS is included but has
+not run yet. The server has not been used in daily work with a real client or on Windows. Known risks and open decisions are listed in
 [architecture.md, section 11](docs/architecture.md#11-risks-and-technical-debt) and
 [requirements.md, section 9](docs/requirements.md#9-relationship-to-the-original-task-specification).
 

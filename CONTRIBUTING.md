@@ -32,7 +32,8 @@ decisions in section 9 and the risks in section 11.
    comments about _why_, not _what_.
 3. Add or update tests for behaviour you change or add. Bug fixes should come with a test that fails without the fix.
 4. Run `pytest -q` and `ruff check . && ruff format --check .`; everything must pass. The pre-commit hook
-   runs the same ruff checks (and fixes what it can) when you commit.
+   runs the same ruff checks (and fixes what it can) when you commit. CI repeats lint, format and tests on Linux,
+   Windows and macOS (see [docs/development.md](docs/development.md#continuous-integration)).
 5. Update the documentation that your change touches (see the checklist below).
 6. Commit with a short, imperative subject line describing the change (for example
    `Add --exclude option for ignoring files`). Keep commits focused; do not mix refactoring and behaviour changes.
