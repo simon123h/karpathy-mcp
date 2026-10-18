@@ -10,7 +10,7 @@ from .extract import docx_to_markdown
 
 SUPPORTED_EXTENSIONS = ("md", "markdown", "mdx", "txt", "text", "rst", "org", "adoc", "asciidoc",
                         "docx")
-DEFAULT_EXTENSIONS = ("md", "markdown", "mdx")
+DEFAULT_EXTENSIONS = SUPPORTED_EXTENSIONS
 
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)(?:\s+#+)?\s*$")

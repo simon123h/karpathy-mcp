@@ -19,10 +19,10 @@ def parse_args(argv=None):
     p.add_argument("--notes-dir", required=True, type=Path, help="Root directory of notes")
     p.add_argument("--name", default="markdown-notes", help="MCP server display name")
     p.add_argument("--extensions", type=parse_extensions, default=DEFAULT_EXTENSIONS,
-                   help="Comma-separated file extensions to index (default: md,markdown,mdx). "
-                        f"Supported: {', '.join(SUPPORTED_EXTENSIONS)} (docx is converted to text, Word headings "
-                        "become sections). Only markdown-family files "
-                        "contribute [[wikilinks]]/links; txt and rst are indexed as a single section.")
+                   help="Comma-separated file extensions to index (default: all supported: "
+                        f"{', '.join(SUPPORTED_EXTENSIONS)}). docx is converted to text with Word headings "
+                        "as sections; only markdown-family files contribute [[wikilinks]]/links; "
+                        "txt and rst are indexed as a single section.")
     p.add_argument("--description", default="",
                    help="What these notes contain; shown to the agent in the server instructions")
     p.add_argument("--cache-dir", type=Path, default=None, help="Location for the SQLite index")

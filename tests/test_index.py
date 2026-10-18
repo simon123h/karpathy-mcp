@@ -48,10 +48,10 @@ def test_initial_sync_and_search(make_index, notes):
     assert dict(idx.list("")) == {"a.md": "Alpha", "sub/b.md": "b"}  # title falls back to stem
 
 
-def test_non_markdown_and_hidden_dirs_ignored(make_index, notes):
+def test_unselected_extensions_and_hidden_dirs_ignored(make_index, notes):
     write(notes / "a.txt", "fox")
     write(notes / ".git" / "x.md", "fox")
-    assert make_index().sync()["total"] == 0
+    assert make_index(extensions=("md",)).sync()["total"] == 0
 
 
 def test_diacritics_folded(make_index, notes):
@@ -306,8 +306,8 @@ def test_extensions_select_files(make_index, notes):
     write(notes / "a.md", "mdword")
     write(notes / "b.txt", "txtword")
     write(notes / "c.markdown", "# C\nmdvariant")
-    idx = make_index()  # default: markdown family only
-    assert idx.sync()["total"] == 2
+    assert make_index().sync()["total"] == 3  # default: every supported extension
+    assert make_index(extensions=("md", "markdown")).sync()["total"] == 2
     idx2 = make_index(extensions=("md", "txt"))
     idx2.sync()
     assert [p for p, _ in idx2.list("")] == ["a.md", "b.txt"]
