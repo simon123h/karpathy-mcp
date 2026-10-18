@@ -17,36 +17,93 @@ every call, which matters on machines with slow file access (antivirus scanning,
   protection.
 - **One instance per notes directory:** run as many as you need, each with its own name and description.
 
-## Quick start
+## Installation
 
-Requires Python 3.10+. Install from a clone (not published on PyPI):
+Requires Python 3.10 or newer (Linux, macOS, Windows). The package is not published on PyPI; install it from a
+clone of this repository. The distribution is called `karpathy-mcp`, the command it installs `mcp-markdown`.
+
+The recommended way is an isolated tool install, which puts `mcp-markdown` on your `PATH` without touching other
+Python environments:
 
 ```bash
 git clone <repo-url> karpathy-mcp && cd karpathy-mcp
-pip install .            # or: pipx install .   /   uv tool install .
+uv tool install .          # or: pipx install .
+mcp-markdown --help        # check that it works
 ```
 
-Register it with an MCP client, for example Claude Code:
+Other ways to install or run it:
+
+| Goal                                     | Command                                                                                         |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Install straight from the repository URL | `uv tool install git+<repo-url>` or `pipx install git+<repo-url>`                               |
+| Run without installing (needs uv)        | `uvx --from /path/to/karpathy-mcp mcp-markdown --notes-dir ...`                                 |
+| Install into the current virtualenv      | `pip install .`                                                                                 |
+| Develop on the code                      | `pip install -e '.[dev]'` (see [development guide](docs/development.md))                        |
+| Upgrade after `git pull`                 | `uv tool install --reinstall .`, `pipx install --force .` or `pip install -U .`                 |
+| Uninstall                                | `uv tool uninstall karpathy-mcp`, `pipx uninstall karpathy-mcp` or `pip uninstall karpathy-mcp` |
+
+The index is a cache and lives in `~/.cache/mcp-markdown/` (on Windows `C:\Users\<you>\.cache\mcp-markdown\`).
+Use `--cache-dir` to put it elsewhere. It is created on first start, in the background, and can be deleted at any time.
+
+## Connect to a client
+
+Run one instance per notes directory; `--name` and `--description` tell the agent what each one contains.
+
+**Claude Code:**
 
 ```bash
 claude mcp add my-notes -- mcp-markdown --notes-dir /home/me/notes --name my-notes
 ```
 
-or in the configuration of any MCP client (such as Claude Desktop):
+**Claude Desktop and other clients** use a JSON configuration (Claude Desktop:
+`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json`
+on Windows):
 
 ```json
 {
   "mcpServers": {
     "my-notes": {
       "command": "mcp-markdown",
-      "args": ["--notes-dir", "/home/me/notes", "--name", "my-notes"]
+      "args": [
+        "--notes-dir",
+        "/home/me/notes",
+        "--name",
+        "my-notes",
+        "--description",
+        "Personal engineering notes"
+      ]
     }
   }
 }
 ```
 
-Run one instance per notes directory; `--description` tells the agent what each contains. More options and
-details are in the [usage guide](docs/usage.md).
+Use absolute paths for `--notes-dir`. On Windows write them with forward slashes (`C:/Users/me/notes`) or escape
+backslashes in JSON (`C:\\Users\\me\\notes`).
+
+**If the client cannot start the server,** it probably does not see your shell's `PATH` (desktop apps often start with
+a minimal one). Give the absolute path of the executable as `command`: find it with `which mcp-markdown` (macOS,
+Linux) or `where mcp-markdown` (Windows). Alternatively let uv launch it, which needs no install step (the first launch is slower while uv builds the
+package):
+
+```json
+{
+  "mcpServers": {
+    "my-notes": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "/path/to/karpathy-mcp",
+        "mcp-markdown",
+        "--notes-dir",
+        "/home/me/notes"
+      ]
+    }
+  }
+}
+```
+
+Server logs go to stderr, which most clients write to their MCP log files. Options and details are in the
+[usage guide](docs/usage.md).
 
 ## Tools
 

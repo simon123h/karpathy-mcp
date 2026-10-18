@@ -4,16 +4,7 @@ Reference for installing, configuring and running the server, and for the tools 
 
 ## Installation
 
-The package is not published on PyPI; install it from a clone. Python 3.10 or newer is required.
-
-```bash
-git clone <repo-url> karpathy-mcp && cd karpathy-mcp
-pip install .            # or: pipx install .   /   uv tool install .
-```
-
-This provides the `mcp-markdown` command and the module entry point `python -m mcp_markdown`. Without
-installing, run it from the repository with `PYTHONPATH=src python -m mcp_markdown ...` (the `mcp` package must
-be importable).
+See [Installation in the README](../README.md#installation) for all ways to install, upgrade and run the server.
 
 ## Running
 
@@ -43,33 +34,9 @@ The index is a cache. It can be deleted at any time and is rebuilt on the next s
 
 ### Client configuration
 
-Generic MCP client configuration (for example Claude Desktop's `claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "my-notes": {
-      "command": "mcp-markdown",
-      "args": [
-        "--notes-dir",
-        "/home/me/notes",
-        "--name",
-        "my-notes",
-        "--description",
-        "Personal engineering notes"
-      ]
-    }
-  }
-}
-```
-
-Claude Code:
-
-```bash
-claude mcp add my-notes -- mcp-markdown --notes-dir /home/me/notes --name my-notes
-```
-
-Use absolute paths. If the command is not on the client's `PATH`, give the full path to the executable.
+How to register the server with Claude Code, Claude Desktop and other clients, including what to do when
+the client cannot find the command, is described in
+[Connect to a client](../README.md#connect-to-a-client).
 
 ## Supported formats
 
