@@ -5,7 +5,8 @@ contribution rules are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Setup
 
-Python 3.10 or newer. The project is developed and tested on Linux with Python 3.12 and `mcp` 1.27.2.
+Python 3.10 or newer. The project is developed on Linux with Python 3.12 and `mcp` 1.27; the test suite has also been run with
+Python 3.10 and 3.13 and `mcp` 1.30. `mcp` is constrained to `>=1.27,<2` (see below).
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate     # fish: source .venv/bin/activate.fish
@@ -143,3 +144,9 @@ server over stdio (for example `npx @modelcontextprotocol/inspector mcp-markdown
 
 The version lives in `pyproject.toml` (`0.1.0`). There is no release automation or CI configuration yet; build a
 wheel locally with `pip wheel --no-deps .` if needed.
+
+## Dependency on the MCP SDK
+
+The package depends on `mcp>=1.27,<2`. Major version 2 of the SDK renamed `FastMCP` to `MCPServer` and removed
+`mcp.server.fastmcp`, so a looser constraint would install a package that fails on import. Raise or widen the
+range only after running the whole suite, including `tests/test_stdio.py`, against the new version.

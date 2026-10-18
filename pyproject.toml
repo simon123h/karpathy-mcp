@@ -6,7 +6,7 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE.md"]
 requires-python = ">=3.10"
-dependencies = ["mcp>=1.2"]
+dependencies = ["mcp>=1.27,<2"]
 
 [project.scripts]
 mcp-markdown = "mcp_markdown.server:main"

@@ -92,13 +92,13 @@ Status: **Done** = implemented and covered by tests; **Partial** = implemented w
 
 ## 6. Constraints
 
-| ID  | Constraint                                                                                 |
-| --- | ------------------------------------------------------------------------------------------ |
-| C-1 | Python 3.10 or newer; the official `mcp` SDK (`FastMCP`).                                  |
-| C-2 | SQLite from the standard library with FTS5 available.                                      |
-| C-3 | Transport is stdio; stdout is reserved for JSON-RPC.                                       |
-| C-4 | The schema's two base tables (`file_meta`, `notes_fts`) follow the original specification. |
-| C-5 | License: Apache-2.0.                                                                       |
+| ID  | Constraint                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------ |
+| C-1 | Python 3.10 or newer; the official `mcp` SDK, major version 1 (`FastMCP`), declared as `mcp>=1.27,<2`. |
+| C-2 | SQLite from the standard library with FTS5 available.                                                  |
+| C-3 | Transport is stdio; stdout is reserved for JSON-RPC.                                                   |
+| C-4 | The schema's two base tables (`file_meta`, `notes_fts`) follow the original specification.             |
+| C-5 | License: Apache-2.0.                                                                                   |
 
 ## 7. Assumptions and risks
 
