@@ -199,10 +199,13 @@ def test_failed_sync_does_not_retrigger_or_block(make_index, monkeypatch):
     assert time.monotonic() - idx.last_sync < 5
 
 
-def test_default_db_path_sanitizes(tmp_path):
+def test_default_db_path_sanitizes_and_hashes_the_directory(tmp_path):
     p = default_db_path("my notes/../x", tmp_path)
-    assert p.name == "my_notes_.._x.db" and p.parent.name == "mcp-markdown"
-    assert default_db_path("///", tmp_path).stem != ""
+    assert p.name.startswith("my_notes_.._x_") and p.suffix == ".db"
+    assert p.parent.name == "mcp-markdown"
+    assert default_db_path("///", tmp_path).name.startswith("notes_")
+    assert default_db_path("n", tmp_path) == default_db_path("n", tmp_path)
+    assert default_db_path("n", tmp_path / "a") != default_db_path("n", tmp_path / "b")
 
 
 def test_sections_are_separate_hits(make_index, notes):

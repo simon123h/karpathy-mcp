@@ -73,7 +73,7 @@ Status: **Done** = implemented and covered by tests; **Partial** = implemented w
 | FR-13 | The server sends usage instructions to the agent and supports `--description` for per-instance context. | Done |
 | FR-14 | Unreadable or corrupt files do not stop synchronization; corrupt `.docx` files are not re-parsed on every sync. | Done |
 | FR-15 | An index created by an older layout is rebuilt automatically. | Done |
-| FR-16 | Several server instances can run side by side with different notes directories. | Partial: instances must have distinct `--name` or `--cache-dir` (see R-1 in the architecture) |
+| FR-16 | Several server instances can run side by side with different notes directories; their default cache files never collide. | Done |
 
 ## 5. Quality requirements
 
@@ -133,7 +133,6 @@ extended one. Differences that exist today:
 | `search_notes(query, limit=5)` returns `list[dict]` with `path,title,snippet,score`; snippet markers `>>>`/`<<<` | `limit=10`; text result; no score; markers `**` |
 | Parameter name `rel_path` | `path` |
 | Query sanitizing: strip punctuation, AND of prefix terms | Raw FTS5 first, fallback to quoted ANDed terms without prefix matching |
-| Cache file `<name>_<hash>.db` | `<sanitized name>.db` |
 | One row per file | One row per section (same columns) |
 | Index built synchronously at start | Built in the background |
 | Only `.md` files | Configurable extensions, default all supported |

@@ -45,8 +45,8 @@ or in the configuration of any MCP client (such as Claude Desktop):
 }
 ```
 
-Give each instance its own `--name`: it determines the cache file. More options and details are in the
-[usage guide](docs/usage.md).
+Run one instance per notes directory; `--description` tells the agent what each contains. More options and
+details are in the [usage guide](docs/usage.md).
 
 ## Tools
 
@@ -67,7 +67,7 @@ contains.
 | Option | Default | |
 |--------|---------|---|
 | `--notes-dir PATH` | required | Root directory of the notes |
-| `--name TEXT` | `markdown-notes` | Server name; also names the cache file |
+| `--name TEXT` | `markdown-notes` | Server name; also part of the cache file name |
 | `--description TEXT` | | Tells the agent what the notes are about |
 | `--cache-dir PATH` | `~/.cache/mcp-markdown/` | Where the SQLite index lives |
 | `--sync-interval SECONDS` | `60` | Maximum age of the index before a background rescan |

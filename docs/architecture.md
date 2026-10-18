@@ -164,15 +164,15 @@ flowchart LR
     subgraph Host
       Client["MCP client"] -- "stdio" --> P1["mcp-markdown --notes-dir A --name a"]
       Client -- "stdio" --> P2["mcp-markdown --notes-dir B --name b"]
-      P1 --- D1[("~/.cache/mcp-markdown/a.db")]
-      P2 --- D2[("~/.cache/mcp-markdown/b.db")]
+      P1 --- D1[("~/.cache/mcp-markdown/a_&lt;hash&gt;.db")]
+      P2 --- D2[("~/.cache/mcp-markdown/b_&lt;hash&gt;.db")]
       P1 --- NA[("notes A")]
       P2 --- NB[("notes B")]
     end
 ```
 
 Install with `pip`/`pipx`/`uv` from a clone. There is no service, daemon, port or configuration file. Each
-instance needs its own cache file (distinct `--name` or `--cache-dir`).
+instance gets its own cache file, named from `--name` and a hash of the notes directory.
 
 ## 8. Crosscutting concepts
 
@@ -236,7 +236,6 @@ Quality requirement IDs and the tests that verify them: [requirements.md, sectio
 
 | ID | Risk / debt | Impact | Possible remedy |
 |----|-------------|--------|-----------------|
-| R-1 | The default cache file name depends only on `--name`. Two instances with the same name and different directories share one database. | Wrong or mixed results. | Include a hash of the notes directory in the default file name (as the original specification does). |
 | R-2 | The scan follows symlinks to **files**, so a link inside the notes directory to a file outside gets indexed and becomes searchable. Tool arguments are contained; the sync is not. | Information exposure from a hostile or careless notes directory. | Skip symlinks that resolve outside the root. |
 | R-3 | The tool contract differs from the original specification (names, return types, defaults). | Consumers written against the specification break. | Align or document; owner decision. |
 | R-4 | Each rescan walks the whole tree. Cost on the slow host is unmeasured. | Background I/O load on slow disks. | Use the logged durations; adaptive interval; larger `--sync-interval`. |

@@ -51,10 +51,13 @@ def parse_args(argv=None):
 
 
 def default_db_path(name: str, notes_dir: Path) -> Path:
-    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("_")
-    if not safe:
-        safe = hashlib.sha1(str(notes_dir).encode()).hexdigest()[:16]
-    return Path.home() / ".cache" / "mcp-markdown" / f"{safe}.db"
+    """Default index location: <sanitized name>_<hash of the notes directory>.db.
+
+    The hash keeps instances that share a name but serve different directories apart.
+    """
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("_") or "notes"
+    digest = hashlib.sha256(str(notes_dir).encode()).hexdigest()[:8]
+    return Path.home() / ".cache" / "mcp-markdown" / f"{safe}_{digest}.db"
 
 
 def build_instructions(name: str, description: str) -> str:

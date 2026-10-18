@@ -34,11 +34,9 @@ The server speaks MCP over stdio. It starts immediately and builds the index in 
 | `--sync-interval SECONDS` | `60` | Minimum time between background rescans. A search or listing that finds the index older than this starts a rescan (it does not wait for it). `0` rescans on every query. |
 | `--extensions LIST` | all supported | Comma-separated extensions to index, e.g. `md,txt`. Unsupported values are rejected. |
 
-The default index file is `~/.cache/mcp-markdown/<name>.db`, with the name sanitized to `[A-Za-z0-9_.-]`.
-
-> **Multiple instances:** give every instance its own `--name` (or its own `--cache-dir`). Two instances that
-> share a name but point at different directories would share one index file. See
-> [architecture.md, section 11](architecture.md#11-risks-and-technical-debt).
+The default index file is `~/.cache/mcp-markdown/<name>_<hash>.db`: the name sanitized to `[A-Za-z0-9_.-]` plus
+a short hash of the notes directory, so several instances can share a name, or one `--cache-dir`, without
+sharing an index.
 
 The index is a cache. It can be deleted at any time and is rebuilt on the next start.
 
