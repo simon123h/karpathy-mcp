@@ -5,7 +5,10 @@ import time
 
 import pytest
 
-from server import NotesIndex, default_db_path, extract_section, format_outline, parse_note
+import argparse
+
+from server import (NotesIndex, default_db_path, extract_section, format_outline, parse_extensions,
+                    parse_note)
 
 
 @pytest.fixture
@@ -289,3 +292,64 @@ def test_format_outline():
     lines = format_outline(sections).splitlines()
     assert lines[0].startswith("# T (") and lines[1].startswith("## A (1.5k chars)")
     assert lines[2].startswith("### B (") and len(lines) == 3
+
+
+def test_parse_extensions():
+    assert parse_extensions("md, .TXT ,md") == ("md", "txt")
+    for bad in ["", "exe", "md,pdf"]:
+        with pytest.raises(argparse.ArgumentTypeError):
+            parse_extensions(bad)
+
+
+def test_extensions_select_files(make_index, notes):
+    write(notes / "a.md", "mdword")
+    write(notes / "b.txt", "txtword")
+    write(notes / "c.markdown", "# C\nmdvariant")
+    idx = make_index()  # default: markdown family only
+    assert idx.sync()["total"] == 2
+    idx2 = make_index(extensions=("md", "txt"))
+    idx2.sync()
+    assert [p for p, _ in idx2.list("")] == ["a.md", "b.txt"]
+    assert [r[0] for r in idx2.search("txtword", 10)] == ["b.txt"]
+
+
+def test_plain_text_is_one_section_without_headings():
+    title, sections, links = parse_note("# not a heading\n[[x]] body", "notes/My Log.txt")
+    assert title == "My Log" and links == set()
+    assert sections == [(0, "", "# not a heading\n[[x]] body")]
+    assert parse_note("  \n", "e.txt")[1] == []
+
+
+def test_org_sections_tags_and_blocks():
+    text = "#+TITLE: x\n* Top  :work:\nintro\n** Sub\n#+BEGIN_SRC sh\n* not a heading\n#+END_SRC\ntail"
+    title, sections, links = parse_note(text, "a.org")
+    assert title == "Top" and links == set()
+    assert [(l, h) for l, h, _ in sections] == [(0, ""), (1, "Top"), (2, "Sub")]
+    assert "* not a heading" in sections[2][2]
+
+
+def test_asciidoc_sections_and_listing_blocks():
+    text = "= Doc\npre\n== Setup\n----\n== nope\n----\nafter"
+    title, sections, _ = parse_note(text, "a.adoc")
+    assert title == "Doc"
+    assert [(l, h) for l, h, _ in sections] == [(1, "Doc"), (2, "Setup")]
+
+
+def test_links_between_formats(make_index, notes):
+    write(notes / "a.md", "# A\n[t](notes/log.txt) and [[Other]] and [[org note]]")
+    write(notes / "notes" / "log.txt", "plain")
+    write(notes / "Other.org", "* Other")
+    write(notes / "org note.org", "* O")
+    idx = make_index(extensions=("md", "txt", "org"))
+    idx.sync()
+    out, unresolved, _ = idx.links_for("a.md")
+    assert sorted(out) == ["Other.org", "notes/log.txt", "org note.org"] and unresolved == []
+    assert idx.links_for("notes/log.txt")[2] == ["a.md"]
+
+
+def test_dotted_note_names_not_mangled(make_index, notes):
+    write(notes / "release 1.2.md", "# R")
+    write(notes / "x.md", "[[release 1.2]]")
+    idx = make_index()
+    idx.sync()
+    assert idx.links_for("x.md")[0] == ["release 1.2.md"]

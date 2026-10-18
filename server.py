@@ -40,30 +40,68 @@ CREATE INDEX IF NOT EXISTS links_src ON links (src);
 CREATE INDEX IF NOT EXISTS links_target ON links (target);
 """
 
+SUPPORTED_EXTENSIONS = ("md", "markdown", "mdx", "txt", "text", "rst", "org", "adoc", "asciidoc")
+DEFAULT_EXTENSIONS = ("md", "markdown", "mdx")
+
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)(?:\s+#+)?\s*$")
+ORG_FENCE_RE = re.compile(r"^\s*#\+(?:begin|end)_", re.IGNORECASE)
+ORG_HEADING_RE = re.compile(r"^(\*{1,6})\s+(.+?)\s*$")
+ADOC_FENCE_RE = re.compile(r"^(?:-{4,}|\.{4,})\s*$")
+ADOC_HEADING_RE = re.compile(r"^(={1,6})\s+(.+?)\s*$")
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 MDLINK_RE = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 
 
-def _strip_md(name: str) -> str:
-    return name[:-3] if name.lower().endswith(".md") else name
+def _split_ext(name: str) -> tuple[str, str | None]:
+    """Split off a supported note extension; (name, None) if it has none."""
+    dot = name.rfind(".")
+    if dot > 0 and name[dot + 1:].lower() in SUPPORTED_EXTENSIONS:
+        return name[:dot], name[dot + 1:].lower()
+    return name, None
+
+
+def _strip_ext(name: str) -> str:
+    return _split_ext(name)[0]
+
+
+def parse_extensions(value: str) -> tuple[str, ...]:
+    """Parse a comma-separated extension list such as 'md,.txt' (argparse type)."""
+    exts = tuple(dict.fromkeys(e.strip().lstrip(".").lower() for e in value.split(",") if e.strip()))
+    bad = [e for e in exts if e not in SUPPORTED_EXTENSIONS]
+    if bad or not exts:
+        raise argparse.ArgumentTypeError(
+            f"unsupported extension(s) {bad or value!r}; supported: {', '.join(SUPPORTED_EXTENSIONS)}")
+    return exts
+
+
+# Per-format parsing: heading/fence patterns; markdown-family notes also get frontmatter and links.
+# Formats without a heading pattern (txt, rst) are indexed as one section.
+_MARKDOWN = dict(heading=HEADING_RE, fence=FENCE_RE, markdown=True, clean=lambda h: h)
+_ORG = dict(heading=ORG_HEADING_RE, fence=ORG_FENCE_RE, markdown=False,
+            clean=lambda h: re.sub(r"\s+:[\w@#%:]+:$", "", h))
+_ADOC = dict(heading=ADOC_HEADING_RE, fence=ADOC_FENCE_RE, markdown=False, clean=lambda h: h)
+_FORMATS = {"md": _MARKDOWN, "markdown": _MARKDOWN, "mdx": _MARKDOWN,
+            "org": _ORG, "adoc": _ADOC, "asciidoc": _ADOC}
 
 
 def parse_note(text: str, rel_path: str):
     """Split a note into heading sections and collect its outgoing links.
 
-    Returns (title, sections, links); sections is a list of (level, heading, body)
+    The format is chosen by file extension. Returns (title, sections, links); sections is a list of (level, heading, body)
     where level 0 is the content before the first heading (incl. frontmatter) and
     body includes the heading line itself.
     """
+    spec = _FORMATS.get(_split_ext(rel_path)[1])
+    if spec is None:  # plain text: a single section, no links
+        return Path(rel_path).stem, ([(0, "", text)] if text.strip() else []), set()
     lines = text.splitlines()
     sections: list[tuple[int, str, str]] = []
     links: set[str] = set()
     cur_level, cur_heading, cur_lines = 0, "", []
 
     start = 0
-    if lines and lines[0].strip() == "---":
+    if spec["markdown"] and lines and lines[0].strip() == "---":
         for j in range(1, len(lines)):
             if lines[j].strip() in ("---", "..."):
                 cur_lines = lines[: j + 1]
@@ -73,26 +111,26 @@ def parse_note(text: str, rel_path: str):
     in_fence = False
     src_dir = posixpath.dirname(rel_path)
     for line in lines[start:]:
-        if FENCE_RE.match(line):
+        if spec["fence"].match(line):
             in_fence = not in_fence
-        m = None if in_fence else HEADING_RE.match(line)
+        m = None if in_fence else spec["heading"].match(line)
         if m:
             if any(l.strip() for l in cur_lines):
                 sections.append((cur_level, cur_heading, "\n".join(cur_lines)))
-            cur_level, cur_heading, cur_lines = len(m.group(1)), m.group(2), [line]
+            cur_level, cur_heading, cur_lines = len(m.group(1)), spec["clean"](m.group(2)), [line]
             continue
         cur_lines.append(line)
-        if in_fence:
+        if in_fence or not spec["markdown"]:
             continue
         for w in WIKILINK_RE.findall(line):
-            links.add(_strip_md(w.strip().lower()))
+            links.add(_strip_ext(w.strip().lower()))
         for target in MDLINK_RE.findall(line):
             target = unquote(target.split("#", 1)[0])
-            if not target.lower().endswith(".md") or "://" in target:
+            if _split_ext(target)[1] is None or "://" in target:
                 continue
             norm = posixpath.normpath(posixpath.join(src_dir, target))
             if not norm.startswith(".."):
-                links.add(_strip_md(norm.lower()))
+                links.add(_strip_ext(norm.lower()))
     if any(l.strip() for l in cur_lines):
         sections.append((cur_level, cur_heading, "\n".join(cur_lines)))
 
@@ -130,8 +168,9 @@ def format_outline(sections) -> str:
 
 class NotesIndex:
     def __init__(self, notes_dir: Path, db_path: Path, sync_interval: float = 60.0,
-                 startup_wait: float = 10.0):
+                 startup_wait: float = 10.0, extensions: tuple[str, ...] = DEFAULT_EXTENSIONS):
         self.root = notes_dir.resolve()
+        self.extensions = frozenset(extensions)
         self.sync_interval = sync_interval
         self.startup_wait = startup_wait
         self.last_sync = float("-inf")  # time.monotonic() of the last finished sync attempt
@@ -167,7 +206,7 @@ class NotesIndex:
                         if entry.is_dir(follow_symlinks=False):
                             if not entry.name.startswith("."):
                                 stack.append(Path(entry.path))
-                        elif entry.is_file() and entry.name.lower().endswith(".md"):
+                        elif entry.is_file() and os.path.splitext(entry.name)[1][1:].lower() in self.extensions:
                             rel = Path(entry.path).relative_to(self.root).as_posix()
                             found[rel] = entry.stat().st_mtime
             except OSError as e:
@@ -315,10 +354,11 @@ class NotesIndex:
             paths = [r[0] for r in self.db.execute("SELECT rel_path FROM file_meta")]
             if rel_path not in paths:
                 return None
-            by_path = {_strip_md(p.lower()): p for p in paths}
+            by_path: dict[str, str] = {}
             by_stem: dict[str, str] = {}
-            for p in sorted(paths):
-                by_stem.setdefault(posixpath.basename(_strip_md(p.lower())), p)
+            for p in sorted(paths):  # on a name clash (a.md vs a.txt) the first path wins
+                by_path.setdefault(_strip_ext(p.lower()), p)
+                by_stem.setdefault(posixpath.basename(_strip_ext(p.lower())), p)
 
             def resolve(target: str):
                 return by_path.get(target) or by_stem.get(target)
@@ -330,7 +370,7 @@ class NotesIndex:
                     unresolved.append(t)
                 elif dest != rel_path and dest not in outgoing:
                     outgoing.append(dest)
-            me = _strip_md(rel_path.lower())
+            me = _strip_ext(rel_path.lower())
             keys = (me, posixpath.basename(me))
             backlinks = sorted({
                 src for src, t in self.db.execute(
@@ -344,6 +384,10 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(description="Markdown notes MCP server (SQLite FTS5)")
     p.add_argument("--notes-dir", required=True, type=Path, help="Root directory of Markdown notes")
     p.add_argument("--name", default="markdown-notes", help="MCP server display name")
+    p.add_argument("--extensions", type=parse_extensions, default=DEFAULT_EXTENSIONS,
+                   help="Comma-separated file extensions to index (default: md,markdown,mdx). "
+                        f"Supported: {', '.join(SUPPORTED_EXTENSIONS)}. Only markdown-family files "
+                        "contribute [[wikilinks]]/links; txt and rst are indexed as a single section.")
     p.add_argument("--description", default="",
                    help="What these notes contain; shown to the agent in the server instructions")
     p.add_argument("--cache-dir", type=Path, default=None, help="Location for the SQLite index")
@@ -362,7 +406,7 @@ def default_db_path(name: str, notes_dir: Path) -> Path:
 def build_instructions(name: str, description: str) -> str:
     about = f" {description.strip()}" if description.strip() else ""
     return (
-        f"Read-only knowledge base '{name}': a directory of Markdown notes.{about}\n\n"
+        f"Read-only knowledge base '{name}': a directory of notes (Markdown and similar text files).{about}\n\n"
         "How to use it:\n"
         "- Start with search_notes. It matches sections (split at headings); each hit is "
         "'path — Note title > Section heading' plus a snippet. Plain words work; FTS5 syntax "
@@ -388,7 +432,7 @@ def build_server(args) -> FastMCP:
     db_path = args.cache_dir.expanduser() if args.cache_dir else default_db_path(args.name, notes_dir)
     if db_path.suffix != ".db":  # treat as a directory
         db_path = db_path / f"{default_db_path(args.name, notes_dir).stem}.db"
-    index = NotesIndex(notes_dir, db_path, args.sync_interval)
+    index = NotesIndex(notes_dir, db_path, args.sync_interval, extensions=args.extensions)
     index.maybe_sync()  # initial index runs in the background so the server starts immediately
 
     def with_note(text: str) -> str:
