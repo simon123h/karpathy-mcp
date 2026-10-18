@@ -9,10 +9,12 @@ Python 3.10 or newer. The project is developed and tested on Linux with Python 3
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate     # fish: source .venv/bin/activate.fish
-pip install -e '.[test]'
+pip install -e '.[dev]'
+pre-commit install
 ```
 
-The editable install provides the `mcp-markdown` command and puts `src/` on the import path.
+The editable install provides the `mcp-markdown` command and puts `src/` on the import path. The `dev` extra
+adds pytest, ruff and pre-commit; `pre-commit install` activates the commit hook described below.
 
 ## Repository layout
 
@@ -26,7 +28,8 @@ The editable install provides the `mcp-markdown` command and puts `src/` on the 
 │   └── __main__.py    python -m mcp_markdown
 ├── tests/             pytest suites (test_index.py, test_extract.py)
 ├── docs/              usage, requirements (req42), architecture (arc42), this guide
-├── pyproject.toml     packaging, entry point, pytest settings
+├── pyproject.toml     packaging, entry point, pytest and ruff settings
+├── .pre-commit-config.yaml   commit hook: ruff lint + format
 ├── CONTRIBUTING.md
 └── LICENSE.md         Apache-2.0
 ```
@@ -48,6 +51,25 @@ Conventions for tests:
   `test_search_does_not_wait_for_rescan`.
 - Control modification times with `os.utime` (the `write(path, text, mtime=...)` helper) instead of sleeping.
 - Build `.docx` fixtures in memory with `make_docx` in `tests/test_extract.py`.
+
+## Code style: ruff and pre-commit
+
+Linting and formatting are done by [ruff](https://docs.astral.sh/ruff/), configured in `pyproject.toml`
+(line length 100, target Python 3.10; rule sets `E`, `W`, `F`, `I` (import order), `B`, `UP`, `SIM`).
+
+```bash
+ruff check .            # lint (add --fix for safe autofixes)
+ruff format .           # format
+ruff format --check .   # what the hook and a CI job would verify
+```
+
+The pre-commit hook (`.pre-commit-config.yaml`, installed with `pre-commit install`) runs `ruff check --fix` and
+`ruff format` on the files of each commit. If either changes a file or finds a problem, the commit is
+**rejected**; review the changes, `git add` them and commit again. To run the hooks on the whole tree:
+`pre-commit run --all-files`.
+
+The ruff version is pinned in two places that must be updated together: `ruff==...` in the `dev` extra of
+`pyproject.toml` and `rev:` in `.pre-commit-config.yaml`. `pre-commit autoupdate` bumps the hook; then align the pin.
 
 ## Trying the server by hand
 

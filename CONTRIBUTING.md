@@ -8,7 +8,8 @@ predictable and easy to read.
 ```bash
 git clone <repo-url> karpathy-mcp && cd karpathy-mcp
 python3 -m venv .venv && . .venv/bin/activate
-pip install -e '.[test]'
+pip install -e '.[dev]'
+pre-commit install     # runs ruff on every commit
 pytest -q
 ```
 
@@ -30,7 +31,8 @@ decisions in section 9 and the risks in section 11.
 2. Make the change. Follow the surrounding code: naming, comment density, idioms. Keep functions short and
    comments about *why*, not *what*.
 3. Add or update tests for behaviour you change or add. Bug fixes should come with a test that fails without the fix.
-4. Run `pytest -q`; all tests must pass.
+4. Run `pytest -q` and `ruff check . && ruff format --check .`; everything must pass. The pre-commit hook
+   runs the same ruff checks (and fixes what it can) when you commit.
 5. Update the documentation that your change touches (see the checklist below).
 6. Commit with a short, imperative subject line describing the change (for example
    `Add --exclude option for ignoring files`). Keep commits focused; do not mix refactoring and behaviour changes.
@@ -43,6 +45,8 @@ decisions in section 9 and the risks in section 11.
   the background sync.
 - **All database access under `NotesIndex.lock`**; schema changes bump `SCHEMA_VERSION`.
 - **Tool arguments are untrusted:** resolve paths with `NotesIndex.resolve`; never read outside the notes directory.
+- **Ruff must be clean.** Linting (`ruff check`) and formatting (`ruff format`, line length 100) are enforced
+  by the pre-commit hook; configuration lives in `pyproject.toml`.
 - **Keep runtime dependencies minimal.** The standard library plus `mcp`. Adding a dependency needs a good reason,
   and an optional one (an extra in `pyproject.toml`) is preferred over a required one.
 
@@ -53,7 +57,7 @@ decisions in section 9 and the risks in section 11.
 | CLI options, tools, formats, behaviour users see | [docs/usage.md](docs/usage.md) and the README summary if affected |
 | Goals, requirements, scope | [docs/requirements.md](docs/requirements.md) |
 | Structure, schema, concurrency, a design decision, a new risk | [docs/architecture.md](docs/architecture.md) |
-| Setup, tests, recipes | [docs/development.md](docs/development.md) |
+| Setup, tests, tooling, recipes | [docs/development.md](docs/development.md) |
 
 ## Reporting problems
 
