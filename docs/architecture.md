@@ -197,7 +197,7 @@ links so that document text cannot create spurious structure; body lines startin
 frontmatter are not headings. Section handles for `read_note` are heading texts.
 
 **Query handling.** BM25 with weights (`rel_path` 0, `title` 5, `content` 1). Raw query first; on
-`sqlite3.OperationalError` retry with each `\w+` token quoted.
+`sqlite3.OperationalError` retry with each `\w+` token quoted and prefix-matched (`"token"*`, ANDed).
 
 **Persistence.** The database is a cache, safe to delete; version mismatch triggers a rebuild.
 
@@ -227,7 +227,7 @@ concurrency behaviour with gated scans; extraction tests build `.docx` files in 
 |----------|--------------------|
 | A search arrives while a rescan of a slow share is running. | The search returns from the index at once. |
 | A note is edited. | It is visible after the next rescan: within about one sync interval plus one query. |
-| The agent sends `error: timeout (retry)` as a query. | Results for the quoted terms; no error. |
+| The agent sends `error: timeout (retry)` as a query. | Results for the prefix-matched terms; no error. |
 | The agent requests `../../etc/passwd`. | `Error: Path escapes notes directory`. |
 | A `.docx` is corrupt. | One warning; the note is listed as empty; no repeated parsing. |
 | The server starts on 1000 notes. | The handshake completes immediately; early searches may carry the "indexing in progress" note. |

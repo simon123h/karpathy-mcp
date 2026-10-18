@@ -92,7 +92,8 @@ marked as `**term**`.
 
 Queries use [FTS5 syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax): plain words are ANDed;
 `"exact phrase"`, `prefix*`, `OR`, `NOT` are available. Text that is not valid FTS5 (for example `foo-bar` or
-`error: timeout`) is retried automatically as quoted, ANDed words. Matching is keyword-based and diacritics are
+`error: timeout`) is retried automatically with every word quoted and prefix-matched (`"error"* "timeout"*`),
+so partial words such as `migra` still find `migration`. Matching is keyword-based and diacritics are
 ignored (`cafe` finds `café`).
 
 ### `read_note(path, section="")`

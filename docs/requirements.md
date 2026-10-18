@@ -64,7 +64,7 @@ Status: **Done** = implemented and covered by tests; **Partial** = implemented w
 | FR-04 | The index is refreshed automatically in the background at most every `--sync-interval` seconds and on request (`sync_notes`). | Done |
 | FR-05 | Startup must not block on indexing. | Done |
 | FR-06 | `search_notes` returns ranked matches with snippets, at section granularity. | Done |
-| FR-07 | Search queries that are not valid FTS5 syntax still return results (retry with quoted terms). | Done |
+| FR-07 | Search queries that are not valid FTS5 syntax still return results (retry with quoted, prefix-matched terms). | Done |
 | FR-08 | `read_note` returns a whole note or one heading section including subsections. | Done |
 | FR-09 | `get_outline` lists a note's headings with section sizes. | Done |
 | FR-10 | `list_notes` lists indexed notes, filterable by path prefix. | Done |
@@ -117,7 +117,6 @@ Not committed, listed to record decisions taken so far.
 - `--exclude` globs to keep noisy files (`requirements.txt`, logs) out of the index.
 - Adaptive rescan interval derived from the measured scan duration.
 - PDF support as an optional dependency, one section per page. Scanned PDFs would stay empty (no OCR).
-- Prefix matching in the search fallback (`"term"*`), as in the original specification.
 - Optional write tools behind an explicit flag, for agents that maintain the wiki.
 - Semantic search, only if keyword search proves insufficient in practice.
 
@@ -132,7 +131,7 @@ extended one. Differences that exist today:
 | `refresh_index()` returns a dict `added/updated/deleted/skipped` | `sync_notes()` returns text `added/updated/removed/total` |
 | `search_notes(query, limit=5)` returns `list[dict]` with `path,title,snippet,score`; snippet markers `>>>`/`<<<` | `limit=10`; text result; no score; markers `**` |
 | Parameter name `rel_path` | `path` |
-| Query sanitizing: strip punctuation, AND of prefix terms | Raw FTS5 first, fallback to quoted ANDed terms without prefix matching |
+| Query sanitizing: always strip punctuation, AND of prefix terms | Raw FTS5 syntax first; the specified prefix-AND query is used as the fallback on a syntax error |
 | One row per file | One row per section (same columns) |
 | Index built synchronously at start | Built in the background |
 | Only `.md` files | Configurable extensions, default all supported |

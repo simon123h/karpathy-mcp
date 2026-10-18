@@ -148,6 +148,14 @@ def test_scan_does_not_follow_symlinked_directories(make_index, notes, tmp_path)
     assert idx.search("elsewhere", 10) == []
 
 
+def test_fallback_matches_term_prefixes(make_index, notes):
+    write(notes / "a.md", "# T\nmigration plan for UserAuthService")
+    idx = make_index()
+    for q in ['migra"', "(migra", "migra: plan", "UserAuth-"]:
+        assert [r[0] for r in idx.search(q, 10)] == ["a.md"], q
+    assert idx.search("migra", 10) == []  # valid syntax is used as written: no implicit prefix
+
+
 def test_invalid_fts_query_falls_back_to_plain_terms(make_index, notes):
     write(notes / "a.md", "# T\nfoo-bar and baz: qux")
     idx = make_index()

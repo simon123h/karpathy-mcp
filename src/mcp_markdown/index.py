@@ -223,7 +223,7 @@ class NotesIndex:
             ).fetchall()
 
     def search(self, query: str, limit: int) -> list[tuple[str, str, str]]:
-        """Search sections. Raw FTS5 syntax first; on a syntax error retry with quoted terms."""
+        """Search sections. Raw FTS5 syntax first; on a syntax error retry with prefix terms."""
         self._prepare()
         try:
             return self._match(query, limit)
@@ -231,7 +231,7 @@ class NotesIndex:
             terms = re.findall(r"\w+", query)
             if not terms:
                 return []
-            return self._match(" ".join(f'"{t}"' for t in terms), limit)
+            return self._match(" ".join(f'"{t}"*' for t in terms), limit)
 
     def list(self, prefix: str) -> list[tuple[str, str]]:
         self._prepare()
