@@ -52,7 +52,7 @@ details are in the [usage guide](docs/usage.md).
 
 | Tool | What it does |
 |------|--------------|
-| `search_notes(query, limit=10)` | Ranked search over note sections; returns `path — Note > Section` and a snippet. |
+| `search_notes(query, limit=5)` | Ranked search over note sections; returns `path — Note > Section` and a snippet. |
 | `read_note(path, section="")` | Reads a whole note or just one heading section. |
 | `get_outline(path)` | Heading structure with section sizes. |
 | `list_notes(prefix="")` | Lists indexed notes, optionally by path prefix. |

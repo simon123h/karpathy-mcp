@@ -107,9 +107,10 @@ def build_server(args) -> FastMCP:
     mcp = FastMCP(args.name, instructions=build_instructions(args.name, args.description))
 
     @mcp.tool()
-    def search_notes(query: str, limit: int = 10) -> str:
+    def search_notes(query: str, limit: int = 5) -> str:
         """Full-text search over note sections, best matches first. Returns 'path — Note > Section'
-        and a snippet per hit. Use read_note with that path (and section) to read more."""
+        and a snippet per hit. Returns 5 hits by default; pass a larger limit for a broader search.
+        Use read_note with that path (and section) to read more."""
         rows = index.search(query, max(1, min(limit, 100)))
         if not rows:
             return with_note(

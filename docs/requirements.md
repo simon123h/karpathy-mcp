@@ -129,7 +129,7 @@ extended one. Differences that exist today:
 |------------------------|------------------------|
 | `get_note_outline(rel_path)` returns a dict with H1-H3 headings | `get_outline(path)` returns text with all heading levels and section sizes |
 | `refresh_index()` returns a dict `added/updated/deleted/skipped` | `sync_notes()` returns text `added/updated/removed/total` |
-| `search_notes(query, limit=5)` returns `list[dict]` with `path,title,snippet,score`; snippet markers `>>>`/`<<<` | `limit=10`; text result; no score; markers `**` |
+| `search_notes(query, limit=5)` returns `list[dict]` with `path,title,snippet,score`; snippet markers `>>>`/`<<<` | text result; no score; markers `**` |
 | Parameter name `rel_path` | `path` |
 | Query sanitizing: always strip punctuation, AND of prefix terms | Raw FTS5 syntax first; the specified prefix-AND query is used as the fallback on a syntax error |
 | One row per file | One row per section (same columns) |

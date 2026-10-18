@@ -84,11 +84,11 @@ format; if two notes share a name (`a.md`, `a.txt`), a bare `[[a]]` resolves to 
 All tools are read-only and return plain text. Paths are relative to `--notes-dir` and use `/` (backslashes are
 accepted). Paths that resolve outside the notes directory are rejected.
 
-### `search_notes(query, limit=10)`
+### `search_notes(query, limit=5)`
 
 Full-text search over note **sections**, best matches first (BM25; title matches weigh five times body matches).
-`limit` is clamped to 1-100. Each hit is `path — Note title > Section heading` followed by a snippet with matches
-marked as `**term**`.
+`limit` (default 5, to keep answers small for models with short contexts) is clamped to 1-100. Each hit is
+`path — Note title > Section heading` followed by a snippet with matches marked as `**term**`.
 
 Queries use [FTS5 syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax): plain words are ANDed;
 `"exact phrase"`, `prefix*`, `OR`, `NOT` are available. Text that is not valid FTS5 (for example `foo-bar` or
