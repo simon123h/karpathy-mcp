@@ -1,5 +1,7 @@
 # karpathy-mcp
 
+[![CI](https://github.com/simon123h/karpathy-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/simon123h/karpathy-mcp/actions/workflows/ci.yml)
+
 An [MCP](https://modelcontextprotocol.io/) server that gives an AI agent fast, read-only access to a local
 knowledge base of notes: a Karpathy-style Markdown wiki, a mirror of a wiki, or any folder of text documents.
 Notes are indexed into a single SQLite FTS5 file, so search and reading do not have to walk and open files on
@@ -26,21 +28,21 @@ The recommended way is an isolated tool install, which puts `mcp-markdown` on yo
 Python environments:
 
 ```bash
-git clone <repo-url> karpathy-mcp && cd karpathy-mcp
+git clone https://github.com/simon123h/karpathy-mcp.git karpathy-mcp && cd karpathy-mcp
 uv tool install .          # or: pipx install .
 mcp-markdown --help        # check that it works
 ```
 
 Other ways to install or run it:
 
-| Goal                                     | Command                                                                                         |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Install straight from the repository URL | `uv tool install git+<repo-url>` or `pipx install git+<repo-url>`                               |
-| Run without installing (needs uv)        | `uvx --from /path/to/karpathy-mcp mcp-markdown --notes-dir ...`                                 |
-| Install into the current virtualenv      | `pip install .`                                                                                 |
-| Develop on the code                      | `pip install -e '.[dev]'` (see [development guide](docs/development.md))                        |
-| Upgrade after `git pull`                 | `uv tool install --reinstall .`, `pipx install --force .` or `pip install -U .`                 |
-| Uninstall                                | `uv tool uninstall karpathy-mcp`, `pipx uninstall karpathy-mcp` or `pip uninstall karpathy-mcp` |
+| Goal                                    | Command                                                                                                                                 |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Install straight from GitHub (no clone) | `uv tool install git+https://github.com/simon123h/karpathy-mcp.git` or `pipx install git+https://github.com/simon123h/karpathy-mcp.git` |
+| Run without installing (needs uv)       | `uvx --from /path/to/karpathy-mcp mcp-markdown --notes-dir ...`                                                                         |
+| Install into the current virtualenv     | `pip install .`                                                                                                                         |
+| Develop on the code                     | `pip install -e '.[dev]'` (see [development guide](docs/development.md))                                                                |
+| Upgrade after `git pull`                | `uv tool install --reinstall .`, `pipx install --force .` or `pip install -U .`                                                         |
+| Uninstall                               | `uv tool uninstall karpathy-mcp`, `pipx uninstall karpathy-mcp` or `pip uninstall karpathy-mcp`                                         |
 
 The index is a cache and lives in `~/.cache/mcp-markdown/` (on Windows `C:\Users\<you>\.cache\mcp-markdown\`).
 Use `--cache-dir` to put it elsewhere. It is created on first start, in the background, and can be deleted at any time.
@@ -156,8 +158,8 @@ docs/               documentation
 ## Status
 
 Early (version 0.1.0). Covered by unit tests and end-to-end stdio tests (the real server driven by an MCP client
-over stdio) on Linux with Python 3.10-3.13. A GitHub Actions workflow for Linux, Windows and macOS is included but has
-not run yet. The server has not been used in daily work with a real client or on Windows. Known risks and open decisions are listed in
+over stdio). CI runs them on Linux, Windows and macOS with Python 3.10-3.13 (see the badge above). The server has
+not yet been used in daily work with a real client or on the Windows machine it was designed for. Known risks and open decisions are listed in
 [architecture.md, section 11](docs/architecture.md#11-risks-and-technical-debt) and
 [requirements.md, section 9](docs/requirements.md#9-relationship-to-the-original-task-specification).
 

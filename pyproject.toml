@@ -8,6 +8,11 @@ license-files = ["LICENSE.md"]
 requires-python = ">=3.10"
 dependencies = ["mcp>=1.27,<2"]
 
+[project.urls]
+Homepage = "https://github.com/simon123h/karpathy-mcp"
+Repository = "https://github.com/simon123h/karpathy-mcp"
+Issues = "https://github.com/simon123h/karpathy-mcp/issues"
+
 [project.scripts]
 mcp-markdown = "mcp_markdown.server:main"
 

@@ -6,7 +6,7 @@ predictable and easy to read.
 ## Getting started
 
 ```bash
-git clone <repo-url> karpathy-mcp && cd karpathy-mcp
+git clone https://github.com/simon123h/karpathy-mcp.git karpathy-mcp && cd karpathy-mcp
 python3 -m venv .venv && . .venv/bin/activate
 pip install -e '.[dev]'
 pre-commit install     # runs ruff on every commit
