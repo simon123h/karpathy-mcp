@@ -1,0 +1,17 @@
+[project]
+name = "karpathy-mcp"
+version = "0.1.0"
+description = "Configurable Markdown knowledge base MCP server backed by SQLite FTS5"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.2"]
+
+[project.scripts]
+mcp-markdown = "server:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["server"]
