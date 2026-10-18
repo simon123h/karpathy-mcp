@@ -136,7 +136,7 @@ finished, `_prepare()` also waits up to `startup_wait` (10 s) for the `ready` ev
 
 1. Walk the tree iteratively with `os.scandir`: skip hidden directories and symlinked directories; keep files
    whose extension is selected and whose name does not start with `~$`; skip symlinks to files that resolve
-   outside the notes root (logged); record `st_mtime`.
+   outside the notes root and files larger than the size limit (both logged); record `st_mtime`.
 2. Compare with `file_meta`. Changed means: new, or mtime not equal.
 3. For each changed file, read (docx: convert) and `parse_note`, with no database lock held. `ExtractError`
    (corrupt file) is logged and the file is indexed as empty; other `OSError`s skip the file for this round.

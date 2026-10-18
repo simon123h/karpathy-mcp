@@ -409,3 +409,30 @@ def test_dotted_note_names_not_mangled(make_index, notes):
     idx = make_index()
     idx.sync()
     assert idx.links_for("x.md")[0] == ["release 1.2.md"]
+
+
+def test_oversized_files_are_skipped_and_warned_once(make_index, notes, caplog):
+    write(notes / "small.md", "# Small\nfits")
+    write(notes / "big.md", "# Big\n" + "x" * 200)
+    idx = make_index(max_file_bytes=100)
+    with caplog.at_level("WARNING", logger="mcp-markdown"):
+        assert idx.sync()["total"] == 1
+        idx.sync()
+    assert [p for p, _ in idx.list("")] == ["small.md"]
+    assert len([r for r in caplog.records if "big.md" in r.getMessage()]) == 1
+
+
+def test_file_at_the_limit_is_indexed_and_zero_disables_the_limit(make_index, notes):
+    write(notes / "exact.md", "x" * 100)
+    write(notes / "big.md", "y" * 5000)
+    assert make_index(max_file_bytes=100).sync()["total"] == 1
+    assert make_index(max_file_bytes=0).sync()["total"] == 2
+
+
+def test_file_growing_past_the_limit_leaves_the_index(make_index, notes):
+    write(notes / "a.md", "# A\nsmall", mtime=1000)
+    idx = make_index(max_file_bytes=100)
+    idx.sync()
+    write(notes / "a.md", "# A\n" + "x" * 500, mtime=2000)
+    assert idx.sync() == {"added": 0, "updated": 0, "removed": 1, "total": 0}
+    assert idx.list("") == []

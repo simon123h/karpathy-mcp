@@ -38,3 +38,15 @@ def test_instances_with_the_same_name_get_separate_indexes(tmp_path):
     assert "only.md" in call(servers[0], "search_notes", query="worda")
     assert "No results" in call(servers[0], "search_notes", query="wordb")
     assert "only.md" in call(servers[1], "search_notes", query="wordb")
+
+
+def test_max_file_size_option_is_in_megabytes(tmp_path):
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    (notes / "small.md").write_text("# Small\nzebra")
+    (notes / "big.md").write_text("# Big\nzebra " + "x" * 3000)
+    mcp = make_server(notes, tmp_path / "cache", "--max-file-size", "0.001")  # about 1 KB
+    listing = call(mcp, "list_notes")
+    assert "small.md" in listing and "big.md" not in listing
+    unlimited = make_server(notes, tmp_path / "cache2", "--max-file-size", "0")
+    assert "big.md" in call(unlimited, "list_notes")

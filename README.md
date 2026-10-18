@@ -72,6 +72,7 @@ contains.
 | `--cache-dir PATH`        | `~/.cache/mcp-markdown/` | Where the SQLite index lives                        |
 | `--sync-interval SECONDS` | `60`                     | Maximum age of the index before a background rescan |
 | `--extensions LIST`       | all supported            | e.g. `md,txt` to restrict formats                   |
+| `--max-file-size MB`      | `10`                     | Skip larger files (`0` = no limit)                  |
 
 Full reference: [docs/usage.md](docs/usage.md).
 

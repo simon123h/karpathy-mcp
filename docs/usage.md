@@ -25,14 +25,15 @@ The server speaks MCP over stdio. It starts immediately and builds the index in 
 
 ### Command-line options
 
-| Option                    | Default                  | Description                                                                                                                                                              |
-| ------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--notes-dir PATH`        | required                 | Root directory of the notes.                                                                                                                                             |
-| `--name TEXT`             | `markdown-notes`         | Display name of the MCP server. Also determines the default index file name (see below).                                                                                 |
-| `--description TEXT`      | empty                    | What these notes contain. Shown to the agent in the server instructions; useful when running several instances.                                                          |
-| `--cache-dir PATH`        | `~/.cache/mcp-markdown/` | Where to keep the SQLite index. A path ending in `.db` is used as the database file; any other path is treated as a directory.                                           |
-| `--sync-interval SECONDS` | `60`                     | Minimum time between background rescans. A search or listing that finds the index older than this starts a rescan (it does not wait for it). `0` rescans on every query. |
-| `--extensions LIST`       | all supported            | Comma-separated extensions to index, e.g. `md,txt`. Unsupported values are rejected.                                                                                     |
+| Option                    | Default                  | Description                                                                                                                                                                        |
+| ------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--notes-dir PATH`        | required                 | Root directory of the notes.                                                                                                                                                       |
+| `--name TEXT`             | `markdown-notes`         | Display name of the MCP server. Also determines the default index file name (see below).                                                                                           |
+| `--description TEXT`      | empty                    | What these notes contain. Shown to the agent in the server instructions; useful when running several instances.                                                                    |
+| `--cache-dir PATH`        | `~/.cache/mcp-markdown/` | Where to keep the SQLite index. A path ending in `.db` is used as the database file; any other path is treated as a directory.                                                     |
+| `--sync-interval SECONDS` | `60`                     | Minimum time between background rescans. A search or listing that finds the index older than this starts a rescan (it does not wait for it). `0` rescans on every query.           |
+| `--extensions LIST`       | all supported            | Comma-separated extensions to index, e.g. `md,txt`. Unsupported values are rejected.                                                                                               |
+| `--max-file-size MB`      | `10`                     | Skip files larger than this many megabytes (the file as stored; for `.docx` the compressed size). `0` disables the limit. Skipped files are logged once and left out of the index. |
 
 The default index file is `~/.cache/mcp-markdown/<name>_<hash>.db`: the name sanitized to `[A-Za-z0-9_.-]` plus
 a short hash of the notes directory, so several instances can share a name, or one `--cache-dir`, without
@@ -132,6 +133,8 @@ Rescans immediately and waits for the result: `Synced: N added, N updated, N rem
   plus the next query. A query never waits for a rescan.
 - **First start:** the first search waits up to 10 seconds for the initial index. If it is still running, results
   are returned with a note saying they may be incomplete.
+- **Large files:** files over `--max-file-size` are not indexed (a warning is logged once per file). A
+  note that grows past the limit disappears from the index at the next rescan.
 - **Unreadable files:** files that cannot be read (for example locked by another program) are skipped and retried
   on the next rescan. Corrupt `.docx` files are logged once and indexed as empty.
 - **Slow file systems:** the rescan reads only file metadata for unchanged files, but it still walks the whole

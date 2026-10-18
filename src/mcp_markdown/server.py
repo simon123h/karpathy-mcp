@@ -10,7 +10,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from .index import NotesIndex
+from .index import DEFAULT_MAX_FILE_BYTES, NotesIndex
 from .parsing import (
     DEFAULT_EXTENSIONS,
     SUPPORTED_EXTENSIONS,
@@ -46,6 +46,13 @@ def parse_args(argv=None):
         type=float,
         default=60.0,
         help="Max seconds between automatic rescans, checked on search/list (default: 60)",
+    )
+    p.add_argument(
+        "--max-file-size",
+        type=float,
+        default=DEFAULT_MAX_FILE_BYTES / (1024 * 1024),
+        metavar="MB",
+        help="Skip files larger than this many megabytes (default: 10; 0 disables the limit)",
     )
     return p.parse_args(argv)
 
@@ -93,7 +100,13 @@ def build_server(args) -> FastMCP:
     )
     if db_path.suffix != ".db":  # treat as a directory
         db_path = db_path / f"{default_db_path(args.name, notes_dir).stem}.db"
-    index = NotesIndex(notes_dir, db_path, args.sync_interval, extensions=args.extensions)
+    index = NotesIndex(
+        notes_dir,
+        db_path,
+        args.sync_interval,
+        extensions=args.extensions,
+        max_file_bytes=int(args.max_file_size * 1024 * 1024),
+    )
     index.maybe_sync()  # initial index runs in the background so the server starts immediately
 
     def with_note(text: str) -> str:

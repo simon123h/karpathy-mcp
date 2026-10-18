@@ -14,6 +14,8 @@ from .parsing import DEFAULT_EXTENSIONS, parse_note, read_note_file, strip_ext
 
 log = logging.getLogger("mcp-markdown")
 
+DEFAULT_MAX_FILE_BYTES = 10 * 1024 * 1024
+
 SCHEMA_VERSION = 2
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS file_meta (
@@ -44,9 +46,12 @@ class NotesIndex:
         sync_interval: float = 60.0,
         startup_wait: float = 10.0,
         extensions: tuple[str, ...] = DEFAULT_EXTENSIONS,
+        max_file_bytes: int | None = DEFAULT_MAX_FILE_BYTES,
     ):
         self.root = notes_dir.resolve()
         self.extensions = frozenset(extensions)
+        self.max_file_bytes = max_file_bytes or None  # 0 / None: no limit
+        self._warned_oversized: set[str] = set()
         self.sync_interval = sync_interval
         self.startup_wait = startup_wait
         self.last_sync = float("-inf")  # time.monotonic() of the last finished sync attempt
@@ -99,7 +104,18 @@ class NotesIndex:
                                 )
                                 continue
                             rel = Path(entry.path).relative_to(self.root).as_posix()
-                            found[rel] = entry.stat().st_mtime
+                            st = entry.stat()
+                            if self.max_file_bytes and st.st_size > self.max_file_bytes:
+                                if rel not in self._warned_oversized:
+                                    self._warned_oversized.add(rel)
+                                    log.warning(
+                                        "Skipping %s: %d bytes exceeds the %d byte limit",
+                                        rel,
+                                        st.st_size,
+                                        self.max_file_bytes,
+                                    )
+                                continue
+                            found[rel] = st.st_mtime
             except OSError as e:
                 log.warning("Cannot scan %s: %s", current, e)
         return found
