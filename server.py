@@ -16,6 +16,8 @@ from urllib.parse import unquote
 
 from mcp.server.fastmcp import FastMCP
 
+from extract import ExtractError, docx_to_markdown
+
 logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger("mcp-markdown")
 
@@ -40,7 +42,8 @@ CREATE INDEX IF NOT EXISTS links_src ON links (src);
 CREATE INDEX IF NOT EXISTS links_target ON links (target);
 """
 
-SUPPORTED_EXTENSIONS = ("md", "markdown", "mdx", "txt", "text", "rst", "org", "adoc", "asciidoc")
+SUPPORTED_EXTENSIONS = ("md", "markdown", "mdx", "txt", "text", "rst", "org", "adoc", "asciidoc",
+                        "docx")
 DEFAULT_EXTENSIONS = ("md", "markdown", "mdx")
 
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
@@ -81,8 +84,17 @@ _MARKDOWN = dict(heading=HEADING_RE, fence=FENCE_RE, markdown=True, clean=lambda
 _ORG = dict(heading=ORG_HEADING_RE, fence=ORG_FENCE_RE, markdown=False,
             clean=lambda h: re.sub(r"\s+:[\w@#%:]+:$", "", h))
 _ADOC = dict(heading=ADOC_HEADING_RE, fence=ADOC_FENCE_RE, markdown=False, clean=lambda h: h)
-_FORMATS = {"md": _MARKDOWN, "markdown": _MARKDOWN, "mdx": _MARKDOWN,
+# .docx is converted to Markdown by extract.py first; its text is never treated as frontmatter, fences or links
+_DOCX = dict(heading=HEADING_RE, fence=re.compile(r"(?!)"), markdown=False, clean=lambda h: h)
+_FORMATS = {"docx": _DOCX, "md": _MARKDOWN, "markdown": _MARKDOWN, "mdx": _MARKDOWN,
             "org": _ORG, "adoc": _ADOC, "asciidoc": _ADOC}
+
+
+def read_note_file(path: Path) -> str:
+    """Read a note's text; binary formats are converted. Raises OSError (ExtractError if unparseable)."""
+    if path.suffix.lower() == ".docx":
+        return docx_to_markdown(path)
+    return path.read_text(encoding="utf-8", errors="replace")
 
 
 def parse_note(text: str, rel_path: str):
@@ -206,7 +218,7 @@ class NotesIndex:
                         if entry.is_dir(follow_symlinks=False):
                             if not entry.name.startswith("."):
                                 stack.append(Path(entry.path))
-                        elif entry.is_file() and os.path.splitext(entry.name)[1][1:].lower() in self.extensions:
+                        elif entry.is_file() and not entry.name.startswith("~$") and os.path.splitext(entry.name)[1][1:].lower() in self.extensions:
                             rel = Path(entry.path).relative_to(self.root).as_posix()
                             found[rel] = entry.stat().st_mtime
             except OSError as e:
@@ -234,7 +246,10 @@ class NotesIndex:
                 if rel in known and known[rel] == mtime:
                     continue
                 try:
-                    text = (self.root / rel).read_text(encoding="utf-8", errors="replace")
+                    text = read_note_file(self.root / rel)
+                except ExtractError as e:  # permanently unreadable: index as empty so it isn't retried every sync
+                    log.warning("Cannot extract %s (indexed as empty): %s", rel, e)
+                    text = ""
                 except OSError as e:
                     log.warning("Cannot read %s: %s", rel, e)
                     continue
@@ -386,7 +401,8 @@ def parse_args(argv=None):
     p.add_argument("--name", default="markdown-notes", help="MCP server display name")
     p.add_argument("--extensions", type=parse_extensions, default=DEFAULT_EXTENSIONS,
                    help="Comma-separated file extensions to index (default: md,markdown,mdx). "
-                        f"Supported: {', '.join(SUPPORTED_EXTENSIONS)}. Only markdown-family files "
+                        f"Supported: {', '.join(SUPPORTED_EXTENSIONS)} (docx is converted to text, Word headings "
+                        "become sections). Only markdown-family files "
                         "contribute [[wikilinks]]/links; txt and rst are indexed as a single section.")
     p.add_argument("--description", default="",
                    help="What these notes contain; shown to the agent in the server instructions")
@@ -460,7 +476,7 @@ def build_server(args) -> FastMCP:
         full = index.resolve(rel)
         text = index.get_text(rel)
         if text is None:  # not indexed yet (e.g. created since the last sync): read from disk
-            text = full.read_text(encoding="utf-8", errors="replace")
+            text = read_note_file(full)
         return rel, text
 
     @mcp.tool()
@@ -473,7 +489,7 @@ def build_server(args) -> FastMCP:
         except ValueError as e:
             return f"Error: {e}"
         except OSError as e:
-            return f"Error: cannot read {path}: {e.strerror}"
+            return f"Error: cannot read {path}: {e.strerror or e}"
         if not section.strip():
             return text
         _, sections, _ = parse_note(text, rel)
@@ -493,7 +509,7 @@ def build_server(args) -> FastMCP:
         except ValueError as e:
             return f"Error: {e}"
         except OSError as e:
-            return f"Error: cannot read {path}: {e.strerror}"
+            return f"Error: cannot read {path}: {e.strerror or e}"
         _, sections, _ = parse_note(text, rel)
         return format_outline(sections) or "No headings."
 
