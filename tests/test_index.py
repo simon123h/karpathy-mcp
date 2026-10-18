@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import threading
 import time
 
 import pytest
@@ -128,13 +129,65 @@ def test_list_prefix_escapes_wildcards(make_index, notes):
     assert [p for p, _ in idx.list("a_b")] == ["a_b/x.md"]
 
 
-def test_lazy_sync_respects_interval(make_index, notes):
+def test_stale_index_refreshes_in_background(make_index, notes):
     idx = make_index(sync_interval=3600)
     idx.sync()
     write(notes / "new.md", "latecomer")
     assert idx.search("latecomer", 10) == []  # inside the window
     idx.last_sync -= 3601
+    assert idx.search("latecomer", 10) == []  # stale-while-revalidate: this query kicks off the rescan
+    assert idx.wait_idle()
     assert len(idx.search("latecomer", 10)) == 1
+
+
+def test_search_does_not_wait_for_rescan(make_index, notes, monkeypatch):
+    write(notes / "a.md", "oldword")
+    idx = make_index(sync_interval=0)
+    idx.sync()
+    gate, started = threading.Event(), threading.Event()
+    orig = idx._scan
+    monkeypatch.setattr(idx, "_scan", lambda: (started.set(), gate.wait(5), orig())[2])
+    t0 = time.monotonic()
+    assert len(idx.search("oldword", 10)) == 1
+    assert started.wait(2) and time.monotonic() - t0 < 1
+    write(notes / "b.md", "newword")
+    gate.set()
+    assert idx.wait_idle()
+    assert len(idx.search("newword", 10)) == 1
+
+
+def test_background_sync_is_single_flight(make_index, monkeypatch):
+    idx = make_index(sync_interval=0)
+    gate, calls = threading.Event(), []
+    monkeypatch.setattr(idx, "_scan", lambda: (calls.append(1), gate.wait(5), {})[2])
+    for _ in range(5):
+        idx.maybe_sync()
+    gate.set()
+    assert idx.wait_idle()
+    assert len(calls) == 1
+
+
+def test_first_search_waits_bounded_for_initial_sync(make_index, notes, monkeypatch):
+    write(notes / "a.md", "word")
+    idx = make_index(startup_wait=0.05)
+    gate = threading.Event()
+    orig = idx._scan
+    monkeypatch.setattr(idx, "_scan", lambda: (gate.wait(5), orig())[1])
+    idx.maybe_sync()
+    assert idx.search("word", 10) == [] and idx.initial_sync_pending
+    gate.set()
+    assert idx.wait_idle() and not idx.initial_sync_pending
+    assert len(idx.search("word", 10)) == 1
+
+
+def test_failed_sync_does_not_retrigger_or_block(make_index, monkeypatch):
+    idx = make_index(sync_interval=3600, startup_wait=1)
+    def boom():
+        raise OSError("disk gone")
+    monkeypatch.setattr(idx, "_scan", boom)
+    assert idx.search("x", 10) == []  # waits for the (failed) first attempt, then returns
+    assert idx.wait_idle() and not idx.initial_sync_pending
+    assert time.monotonic() - idx.last_sync < 5
 
 
 def test_default_db_path_sanitizes(tmp_path):

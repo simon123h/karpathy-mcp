@@ -129,13 +129,17 @@ def format_outline(sections) -> str:
 
 
 class NotesIndex:
-    def __init__(self, notes_dir: Path, db_path: Path, sync_interval: float = 60.0):
+    def __init__(self, notes_dir: Path, db_path: Path, sync_interval: float = 60.0,
+                 startup_wait: float = 10.0):
         self.root = notes_dir.resolve()
         self.sync_interval = sync_interval
-        self.last_sync = 0.0
+        self.startup_wait = startup_wait
+        self.last_sync = float("-inf")  # time.monotonic() of the last finished sync attempt
+        self.ready = threading.Event()  # set once the first sync attempt has finished
+        self.sync_lock = threading.Lock()  # held while a sync runs; keeps syncs single-flight
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(db_path, check_same_thread=False)
-        self.lock = threading.Lock()
+        self.lock = threading.Lock()  # guards all database access
         self.db.execute("PRAGMA journal_mode = WAL;")
         self.db.execute("PRAGMA synchronous = NORMAL;")
         if self.db.execute("PRAGMA user_version").fetchone()[0] < SCHEMA_VERSION:
@@ -175,10 +179,18 @@ class NotesIndex:
         self.db.execute("DELETE FROM links WHERE src = ?", (rel,))
 
     def sync(self) -> dict[str, int]:
-        with self.lock:
+        """Rescan now and wait for it (waits for a running background sync first)."""
+        with self.sync_lock:
+            return self._sync_locked()
+
+    def _sync_locked(self) -> dict[str, int]:
+        """Directory walk and file reads run without the DB lock so searches are never blocked by slow I/O."""
+        t0 = time.monotonic()
+        try:
             on_disk = self._scan()
-            known = dict(self.db.execute("SELECT rel_path, mtime FROM file_meta"))
-            added = updated = 0
+            with self.lock:
+                known = dict(self.db.execute("SELECT rel_path, mtime FROM file_meta"))
+            loaded = []
             for rel, mtime in on_disk.items():
                 if rel in known and known[rel] == mtime:
                     continue
@@ -187,46 +199,74 @@ class NotesIndex:
                 except OSError as e:
                     log.warning("Cannot read %s: %s", rel, e)
                     continue
-                title, sections, links = parse_note(text, rel)
-                self._drop(rel)
-                for n, (level, heading, body) in enumerate(sections):
-                    # first chunk carries the bare note title (used for listings)
-                    chunk_title = title if n == 0 or not heading or heading == title \
-                        else f"{title} > {heading}"
-                    self.db.execute(
-                        "INSERT INTO notes_fts (rel_path, title, content) VALUES (?, ?, ?)",
-                        (rel, chunk_title, body),
-                    )
-                if not sections:  # empty file: keep it listed
-                    self.db.execute(
-                        "INSERT INTO notes_fts (rel_path, title, content) VALUES (?, ?, '')",
-                        (rel, title),
-                    )
-                self.db.executemany("INSERT INTO links (src, target) VALUES (?, ?)",
-                                    [(rel, t) for t in sorted(links)])
-                self.db.execute(
-                    "INSERT OR REPLACE INTO file_meta (rel_path, mtime) VALUES (?, ?)",
-                    (rel, mtime),
-                )
-                if rel in known:
-                    updated += 1
-                else:
-                    added += 1
+                loaded.append((rel, mtime, *parse_note(text, rel)))
             removed_paths = [r for r in known if r not in on_disk]
-            for rel in removed_paths:
-                self._drop(rel)
-                self.db.execute("DELETE FROM file_meta WHERE rel_path = ?", (rel,))
-            self.db.commit()
-            stats = {"added": added, "updated": updated, "removed": len(removed_paths),
-                     "total": len(on_disk)}
-            self.last_sync = time.monotonic()
-            log.info("sync: %s", stats)
+            with self.lock:
+                for rel, mtime, title, sections, links in loaded:
+                    self._drop(rel)
+                    for n, (level, heading, body) in enumerate(sections):
+                        # first chunk carries the bare note title (used for listings)
+                        chunk_title = title if n == 0 or not heading or heading == title \
+                            else f"{title} > {heading}"
+                        self.db.execute(
+                            "INSERT INTO notes_fts (rel_path, title, content) VALUES (?, ?, ?)",
+                            (rel, chunk_title, body),
+                        )
+                    if not sections:  # empty file: keep it listed
+                        self.db.execute(
+                            "INSERT INTO notes_fts (rel_path, title, content) VALUES (?, ?, '')",
+                            (rel, title),
+                        )
+                    self.db.executemany("INSERT INTO links (src, target) VALUES (?, ?)",
+                                        [(rel, t) for t in sorted(links)])
+                    self.db.execute(
+                        "INSERT OR REPLACE INTO file_meta (rel_path, mtime) VALUES (?, ?)",
+                        (rel, mtime),
+                    )
+                for rel in removed_paths:
+                    self._drop(rel)
+                    self.db.execute("DELETE FROM file_meta WHERE rel_path = ?", (rel,))
+                self.db.commit()
+            stats = {"added": sum(1 for x in loaded if x[0] not in known),
+                     "updated": sum(1 for x in loaded if x[0] in known),
+                     "removed": len(removed_paths), "total": len(on_disk)}
+            log.info("sync: %s in %.2fs", stats, time.monotonic() - t0)
             return stats
+        finally:
+            self.last_sync = time.monotonic()  # also after a failure, so errors don't retrigger every search
+            self.ready.set()
+
+    def _background_sync(self) -> None:
+        try:
+            self._sync_locked()
+        except Exception:
+            log.exception("background sync failed")
+        finally:
+            self.sync_lock.release()
 
     def maybe_sync(self) -> None:
-        """Resync if the last scan is older than sync_interval (metadata-only when nothing changed)."""
-        if time.monotonic() - self.last_sync >= self.sync_interval:
-            self.sync()
+        """If the index is older than sync_interval, start a background rescan (never blocks the caller)."""
+        if time.monotonic() - self.last_sync < self.sync_interval:
+            return
+        if self.sync_lock.acquire(blocking=False):  # released by _background_sync
+            threading.Thread(target=self._background_sync, daemon=True).start()
+
+    def wait_idle(self, timeout: float = 10.0) -> bool:
+        """Wait until no sync is running (mainly for tests)."""
+        if self.sync_lock.acquire(timeout=timeout):
+            self.sync_lock.release()
+            return True
+        return False
+
+    @property
+    def initial_sync_pending(self) -> bool:
+        return not self.ready.is_set()
+
+    def _prepare(self) -> None:
+        """Kick off a stale-index refresh; before the first sync has finished, wait for it (bounded)."""
+        self.maybe_sync()
+        if not self.ready.is_set():
+            self.ready.wait(self.startup_wait)
 
     def _match(self, fts_query: str, limit: int) -> list[tuple[str, str, str]]:
         with self.lock:
@@ -238,7 +278,7 @@ class NotesIndex:
 
     def search(self, query: str, limit: int) -> list[tuple[str, str, str]]:
         """Search sections. Raw FTS5 syntax first; on a syntax error, retry with plain quoted terms."""
-        self.maybe_sync()
+        self._prepare()
         try:
             return self._match(query, limit)
         except sqlite3.OperationalError:
@@ -248,7 +288,7 @@ class NotesIndex:
             return self._match(" ".join(f'"{t}"' for t in terms), limit)
 
     def list(self, prefix: str) -> list[tuple[str, str]]:
-        self.maybe_sync()
+        self._prepare()
         with self.lock:
             return self.db.execute(
                 "SELECT rel_path, title FROM notes_fts "
@@ -270,7 +310,7 @@ class NotesIndex:
 
     def links_for(self, rel_path: str):
         """Return (outgoing, unresolved, backlinks) for an indexed note, or None if not indexed."""
-        self.maybe_sync()
+        self._prepare()
         with self.lock:
             paths = [r[0] for r in self.db.execute("SELECT rel_path FROM file_meta")]
             if rel_path not in paths:
@@ -336,7 +376,8 @@ def build_instructions(name: str, description: str) -> str:
         "related context.\n"
         "- list_notes(prefix) shows the file tree by path prefix. Paths are always relative to "
         "the notes root, e.g. 'projects/alpha.md'.\n"
-        "- The index refreshes automatically about once a minute; call sync_notes to force it."
+        "- The index refreshes in the background roughly once a minute (a search never waits for it, "
+        "so a very recent edit may show up one query later); call sync_notes to force a refresh."
     )
 
 
@@ -348,7 +389,12 @@ def build_server(args) -> FastMCP:
     if db_path.suffix != ".db":  # treat as a directory
         db_path = db_path / f"{default_db_path(args.name, notes_dir).stem}.db"
     index = NotesIndex(notes_dir, db_path, args.sync_interval)
-    index.sync()
+    index.maybe_sync()  # initial index runs in the background so the server starts immediately
+
+    def with_note(text: str) -> str:
+        if index.initial_sync_pending:
+            return text + "\n\n(Note: the initial indexing is still running, so results may be incomplete. Retry shortly.)"
+        return text
 
     mcp = FastMCP(args.name, instructions=build_instructions(args.name, args.description))
 
@@ -358,8 +404,8 @@ def build_server(args) -> FastMCP:
         and a snippet per hit. Use read_note with that path (and section) to read more."""
         rows = index.search(query, max(1, min(limit, 100)))
         if not rows:
-            return "No results. Try different or fewer keywords, synonyms, or a prefix like term*."
-        return "\n\n".join(f"{p} — {t}\n{s}" for p, t, s in rows)
+            return with_note("No results. Try different or fewer keywords, synonyms, or a prefix like term*.")
+        return with_note("\n\n".join(f"{p} — {t}\n{s}" for p, t, s in rows))
 
     def load_note(path: str) -> tuple[str, str]:
         """Return (normalised path, text), served from the index when possible.
@@ -411,7 +457,7 @@ def build_server(args) -> FastMCP:
     def list_notes(prefix: str = "") -> str:
         """List indexed notes (path — title), optionally filtered by a relative path prefix."""
         rows = index.list(prefix)
-        return "\n".join(f"{p} — {t}" for p, t in rows) or "No notes."
+        return with_note("\n".join(f"{p} — {t}" for p, t in rows) or "No notes.")
 
     @mcp.tool()
     def get_links(path: str) -> str:
@@ -423,13 +469,13 @@ def build_server(args) -> FastMCP:
             return f"Error: {e}"
         result = index.links_for(Path(path).as_posix())
         if result is None:
-            return f"Error: {path} is not an indexed note. Use list_notes to see paths."
+            return with_note(f"Error: {path} is not an indexed note. Use list_notes to see paths.")
         outgoing, unresolved, backlinks = result
         out = ["Links to:" + ("".join(f"\n- {p}" for p in outgoing) or " none")]
         if unresolved:
             out.append("Unresolved links (no matching note): " + ", ".join(unresolved))
         out.append("Linked from:" + ("".join(f"\n- {p}" for p in backlinks) or " none"))
-        return "\n".join(out)
+        return with_note("\n".join(out))
 
     @mcp.tool()
     def sync_notes() -> str:
