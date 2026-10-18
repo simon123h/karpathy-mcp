@@ -113,7 +113,7 @@ def test_resolve_rejects_symlink_escape(make_index, notes, tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "s.md").write_text("x")
-    (notes / "link").symlink_to(outside)
+    symlink(notes / "link", outside)
     with pytest.raises(ValueError):
         make_index().resolve("link/s.md")
 
