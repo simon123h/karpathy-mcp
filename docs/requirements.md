@@ -118,6 +118,7 @@ Not committed, listed to record decisions taken so far.
 - Adaptive rescan interval derived from the measured scan duration.
 - PDF support as an optional dependency, one section per page. Scanned PDFs would stay empty (no OCR).
 - Optional write tools behind an explicit flag, for agents that maintain the wiki.
+- `--output-format json` for programmatic consumers of the tools (not needed by agents).
 - Semantic search, only if keyword search proves insufficient in practice.
 
 ## 9. Relationship to the original task specification
@@ -137,4 +138,4 @@ extended one. Differences that exist today:
 | Only `.md` files | Configurable extensions, default all supported |
 | Single `server.py` | Package `mcp_markdown` under `src/` |
 
-Whether the tool contract should be aligned with the specification is an open decision for the owner.
+The specification's author confirmed that the `list[dict]` return types and the tool names were illustrative; the plain-text results and the shorter names (`get_outline`, `sync_notes`, ...) are kept. See [review-summary.md](review-summary.md#7-outcome-of-the-review).

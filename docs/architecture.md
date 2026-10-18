@@ -214,7 +214,7 @@ concurrency behaviour with gated scans; extraction tests build `.docx` files in 
 | D-3 | **Serve reads from the index.** | Avoids file access on slow disks. Cost: reads are as stale as the index; line endings normalized. |
 | D-4 | **Stale-while-revalidate background sync, single-flight, no timer thread.** | Queries never block; nothing runs while idle; no concurrency beyond one worker. Rejected: timer thread (scans on idle machines), filesystem watchers (extra dependency, unreliable on network drives), directory-mtime pruning (misses edits to existing files). |
 | D-5 | **Initial index in the background; bounded wait on first query.** | Avoids MCP client start-up timeouts on large trees. |
-| D-6 | **Plain-text tool results.** | Compact and readable for models; no schema for the agent to learn. Differs from the original specification, which asked for dicts (open decision, see requirements section 9). |
+| D-6 | **Plain-text tool results.** | Compact and readable for models; no schema for the agent to learn. Differs from the original specification, which asked for dicts; the specification's author confirmed those were illustrative (requirements section 9). |
 | D-7 | **Lazy link resolution.** | Links to notes created later resolve without reindexing the source note. |
 | D-8 | **Standard-library `.docx` extraction; no PDF.** | Keeps the dependency set minimal. PDF would need a third-party parser and has no reliable headings. |
 | D-9 | **Format selection by extension, default all supported.** | One flag, predictable. Trade-off: noise from files such as `requirements.txt`. |
@@ -238,10 +238,9 @@ Quality requirement IDs and the tests that verify them: [requirements.md, sectio
 
 | ID | Risk / debt | Impact | Possible remedy |
 |----|-------------|--------|-----------------|
-| R-3 | The tool contract differs from the original specification (names, return types, defaults). | Consumers written against the specification break. | Align or document; owner decision. |
 | R-4 | Each rescan walks the whole tree. Cost on the slow host is unmeasured. | Background I/O load on slow disks. | Use the logged durations; adaptive interval; larger `--sync-interval`. |
 | R-5 | Reads and searches can be one interval stale; deleted notes stay readable until the next sync. | Agent sees outdated content. | Acceptable by requirement; `sync_notes` for immediate refresh. |
-| R-6 | Default "all extensions" can index noise and duplicates (`a.md` and `a.docx`). | Cluttered results; ambiguous links. | `--exclude` globs; narrower `--extensions`. |
+| R-6 | Default "all extensions" can index noise and duplicates (`a.md` and `a.docx`). | Cluttered results; ambiguous links. | `--exclude` globs; narrower `--extensions`. A fixed skip list (`requirements.txt`, `license.txt`, `todo.txt`) was suggested in review but not adopted: such names can be genuine notes. |
 | R-7 | Keyword-only search; no synonyms. | Missed notes when the agent uses different words. | Agent retries (instructions say so); semantic search only if needed. |
 | R-8 | `.docx` parsing uses `xml.etree` on files from the notes directory; expat limits entity expansion but the parser is not hardened, and a size limit (64 MB per XML part) is the only other guard. | Untrusted documents could consume resources. | `defusedxml` if untrusted input matters. |
 | R-9 | FastMCP (mcp 1.27.2) calls synchronous tool functions inline on the event loop, so the first-query wait (up to 10 s) blocks the server loop meanwhile. | Only relevant before the first index completes. | Make tools async and wait without blocking. |

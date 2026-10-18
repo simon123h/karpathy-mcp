@@ -5,6 +5,9 @@ spec (the README, now preserved as `docs/original-task-spec.md`) and has more ba
 building session did. It tries to be explicit about where the implementation **differs from that spec**, because
 those differences are the main thing worth a second opinion.
 
+> **Point-in-time document.** Sections 1-6 describe the state at hand-over to Gemini. Section 7 records the
+> outcome of that review and what was changed afterwards.
+
 ## 1. Purpose, as understood
 
 An MCP server that lets an AI agent search and read a local knowledge base of notes (Karpathy-style Markdown wiki,
@@ -99,3 +102,30 @@ rejections of the spec:
    defaults such as the 10-second first-search wait, the snippet size or `limit`?
 5. Are `.txt` and `.docx` in the default set acceptable, or should the default be Markdown-only?
 6. Anything in the discussion preceding the spec that these decisions contradict?
+
+## 7. Outcome of the review
+
+Gemini's answers to the questions in section 6:
+
+| Question | Answer |
+|----------|--------|
+| 1. Is `list[dict]` a hard requirement? | No, illustrative only. Plain text is better for LLM consumers (fewer tokens). A `--output-format json` flag could be added later if a programmatic consumer appears. |
+| 2. Do `get_note_outline` / `refresh_index` have to stay? | No. The shorter names (`get_outline`, `sync_notes`, `list_notes`, `get_links`) are kept. |
+| 3. Restore prefix matching? | Yes, in the fallback. |
+| 4. Context on target clients | Local models (Ollama/Qwen) have short effective contexts: default `limit` should be 5; snippets stay tight (about 25-35 tokens); the 10 s first-search wait is fine. |
+| 5. Default extensions | Keep `.docx` on by default. Keep text formats on, but filter noise. |
+| 6. Contradictions with earlier discussion | None. |
+
+Changes made as a result:
+
+| Change | Commit |
+|--------|--------|
+| Default cache file is `<name>_<sha256(notes_dir)[:8]>.db` (fixes the same-name collision) | `fix: include a hash of the notes directory in the default cache file name` |
+| The scan skips symlinked files that resolve outside the notes directory (logged); symlinked directories are not followed | `fix: skip symlinked files that resolve outside the notes directory` |
+| The search fallback uses prefix-matched terms (`"term"*`, ANDed) | `feat: prefix-match terms in the search fallback` |
+| Default `limit` is 5 | `feat: lower the default search limit to 5` |
+| Word `~$` lock files are ignored | already implemented (all extensions); covered by `test_word_lock_files_skipped` |
+
+Not adopted: the suggested fixed skip list (`requirements.txt`, `license.txt`, `todo.txt`, `pom.xml`). `pom.xml` is
+not an indexed format, and names like `todo.txt` can be real notes; `--exclude` globs would be the more precise
+tool if noise becomes a problem (see architecture, risk R-6).
