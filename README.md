@@ -50,42 +50,42 @@ details are in the [usage guide](docs/usage.md).
 
 ## Tools
 
-| Tool | What it does |
-|------|--------------|
+| Tool                           | What it does                                                                     |
+| ------------------------------ | -------------------------------------------------------------------------------- |
 | `search_notes(query, limit=5)` | Ranked search over note sections; returns `path — Note > Section` and a snippet. |
-| `read_note(path, section="")` | Reads a whole note or just one heading section. |
-| `get_outline(path)` | Heading structure with section sizes. |
-| `list_notes(prefix="")` | Lists indexed notes, optionally by path prefix. |
-| `get_links(path)` | Outgoing links and backlinks of a note. |
-| `sync_notes()` | Rescans the notes directory immediately. |
+| `read_note(path, section="")`  | Reads a whole note or just one heading section.                                  |
+| `get_outline(path)`            | Heading structure with section sizes.                                            |
+| `list_notes(prefix="")`        | Lists indexed notes, optionally by path prefix.                                  |
+| `get_links(path)`              | Outgoing links and backlinks of a note.                                          |
+| `sync_notes()`                 | Rescans the notes directory immediately.                                         |
 
 The server also sends the agent short usage instructions, and `--description` lets you say what a given wiki
 contains.
 
 ## Main options
 
-| Option | Default | |
-|--------|---------|---|
-| `--notes-dir PATH` | required | Root directory of the notes |
-| `--name TEXT` | `markdown-notes` | Server name; also part of the cache file name |
-| `--description TEXT` | | Tells the agent what the notes are about |
-| `--cache-dir PATH` | `~/.cache/mcp-markdown/` | Where the SQLite index lives |
-| `--sync-interval SECONDS` | `60` | Maximum age of the index before a background rescan |
-| `--extensions LIST` | all supported | e.g. `md,txt` to restrict formats |
+| Option                    | Default                  |                                                     |
+| ------------------------- | ------------------------ | --------------------------------------------------- |
+| `--notes-dir PATH`        | required                 | Root directory of the notes                         |
+| `--name TEXT`             | `markdown-notes`         | Server name; also part of the cache file name       |
+| `--description TEXT`      |                          | Tells the agent what the notes are about            |
+| `--cache-dir PATH`        | `~/.cache/mcp-markdown/` | Where the SQLite index lives                        |
+| `--sync-interval SECONDS` | `60`                     | Maximum age of the index before a background rescan |
+| `--extensions LIST`       | all supported            | e.g. `md,txt` to restrict formats                   |
 
 Full reference: [docs/usage.md](docs/usage.md).
 
 ## Documentation
 
-| Document | Contents |
-|----------|----------|
-| [docs/usage.md](docs/usage.md) | Installation, options, client configuration, formats, tool reference, behaviour notes |
-| [docs/requirements.md](docs/requirements.md) | Vision, goals, functional and quality requirements, constraints ([req42](https://req42.de/)) |
-| [docs/architecture.md](docs/architecture.md) | Building blocks, runtime view, decisions, risks ([arc42](https://arc42.org/)) |
-| [docs/development.md](docs/development.md) | Setup, tests, conventions, recipes for new formats, tools and schema changes |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
-| [docs/original-task-spec.md](docs/original-task-spec.md) | The original task specification this project started from |
-| [LICENSE.md](LICENSE.md) | Apache License 2.0 |
+| Document                                                 | Contents                                                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [docs/usage.md](docs/usage.md)                           | Installation, options, client configuration, formats, tool reference, behaviour notes        |
+| [docs/requirements.md](docs/requirements.md)             | Vision, goals, functional and quality requirements, constraints ([req42](https://req42.de/)) |
+| [docs/architecture.md](docs/architecture.md)             | Building blocks, runtime view, decisions, risks ([arc42](https://arc42.org/))                |
+| [docs/development.md](docs/development.md)               | Setup, tests, conventions, recipes for new formats, tools and schema changes                 |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                       | How to contribute                                                                            |
+| [docs/original-task-spec.md](docs/original-task-spec.md) | The original task specification this project started from                                    |
+| [LICENSE.md](LICENSE.md)                                 | Apache License 2.0                                                                           |
 
 ## Project layout
 

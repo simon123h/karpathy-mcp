@@ -25,14 +25,14 @@ The server speaks MCP over stdio. It starts immediately and builds the index in 
 
 ### Command-line options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--notes-dir PATH` | required | Root directory of the notes. |
-| `--name TEXT` | `markdown-notes` | Display name of the MCP server. Also determines the default index file name (see below). |
-| `--description TEXT` | empty | What these notes contain. Shown to the agent in the server instructions; useful when running several instances. |
-| `--cache-dir PATH` | `~/.cache/mcp-markdown/` | Where to keep the SQLite index. A path ending in `.db` is used as the database file; any other path is treated as a directory. |
-| `--sync-interval SECONDS` | `60` | Minimum time between background rescans. A search or listing that finds the index older than this starts a rescan (it does not wait for it). `0` rescans on every query. |
-| `--extensions LIST` | all supported | Comma-separated extensions to index, e.g. `md,txt`. Unsupported values are rejected. |
+| Option                    | Default                  | Description                                                                                                                                                              |
+| ------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--notes-dir PATH`        | required                 | Root directory of the notes.                                                                                                                                             |
+| `--name TEXT`             | `markdown-notes`         | Display name of the MCP server. Also determines the default index file name (see below).                                                                                 |
+| `--description TEXT`      | empty                    | What these notes contain. Shown to the agent in the server instructions; useful when running several instances.                                                          |
+| `--cache-dir PATH`        | `~/.cache/mcp-markdown/` | Where to keep the SQLite index. A path ending in `.db` is used as the database file; any other path is treated as a directory.                                           |
+| `--sync-interval SECONDS` | `60`                     | Minimum time between background rescans. A search or listing that finds the index older than this starts a rescan (it does not wait for it). `0` rescans on every query. |
+| `--extensions LIST`       | all supported            | Comma-separated extensions to index, e.g. `md,txt`. Unsupported values are rejected.                                                                                     |
 
 The default index file is `~/.cache/mcp-markdown/<name>_<hash>.db`: the name sanitized to `[A-Za-z0-9_.-]` plus
 a short hash of the notes directory, so several instances can share a name, or one `--cache-dir`, without
@@ -49,8 +49,14 @@ Generic MCP client configuration (for example Claude Desktop's `claude_desktop_c
   "mcpServers": {
     "my-notes": {
       "command": "mcp-markdown",
-      "args": ["--notes-dir", "/home/me/notes", "--name", "my-notes",
-               "--description", "Personal engineering notes"]
+      "args": [
+        "--notes-dir",
+        "/home/me/notes",
+        "--name",
+        "my-notes",
+        "--description",
+        "Personal engineering notes"
+      ]
     }
   }
 }
@@ -66,13 +72,13 @@ Use absolute paths. If the command is not on the client's `PATH`, give the full 
 
 ## Supported formats
 
-| Extension | Sections | Links | Notes |
-|-----------|----------|-------|-------|
-| `md`, `markdown`, `mdx` | `#` headings (levels 1-6); headings inside fenced code are ignored | `[[wikilink]]`, `[[target\|alias]]`, `[[target#section]]`, relative `[text](path.md)` | YAML frontmatter stays in the first section. |
-| `txt`, `text`, `rst` | one section | none | |
-| `org` | `*` headings; trailing `:tags:` stripped; `#+BEGIN_`/`#+END_` blocks ignored | none | |
-| `adoc`, `asciidoc` | `=` headings; `----` and `....` blocks ignored | none | |
-| `docx` | Word heading styles (including localized and custom heading styles) | none | Converted to text first. Tables become `a \| b` rows, list items `- `. Images, headers/footers, footnotes and comments are not extracted. Word's `~$` lock files are skipped. |
+| Extension               | Sections                                                                     | Links                                                                                 | Notes                                                                                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `md`, `markdown`, `mdx` | `#` headings (levels 1-6); headings inside fenced code are ignored           | `[[wikilink]]`, `[[target\|alias]]`, `[[target#section]]`, relative `[text](path.md)` | YAML frontmatter stays in the first section.                                                                                                                                  |
+| `txt`, `text`, `rst`    | one section                                                                  | none                                                                                  |                                                                                                                                                                               |
+| `org`                   | `*` headings; trailing `:tags:` stripped; `#+BEGIN_`/`#+END_` blocks ignored | none                                                                                  |                                                                                                                                                                               |
+| `adoc`, `asciidoc`      | `=` headings; `----` and `....` blocks ignored                               | none                                                                                  |                                                                                                                                                                               |
+| `docx`                  | Word heading styles (including localized and custom heading styles)          | none                                                                                  | Converted to text first. Tables become `a \| b` rows, list items `- `. Images, headers/footers, footnotes and comments are not extracted. Word's `~$` lock files are skipped. |
 
 A note's **title** is its first level-1 heading, otherwise the file name without extension. Hidden directories
 (names starting with `.`) and symbolic links to directories are not scanned; symbolic links to files are

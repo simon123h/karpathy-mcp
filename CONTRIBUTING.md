@@ -29,7 +29,7 @@ decisions in section 9 and the risks in section 11.
 
 1. Create a branch from `main`.
 2. Make the change. Follow the surrounding code: naming, comment density, idioms. Keep functions short and
-   comments about *why*, not *what*.
+   comments about _why_, not _what_.
 3. Add or update tests for behaviour you change or add. Bug fixes should come with a test that fails without the fix.
 4. Run `pytest -q` and `ruff check . && ruff format --check .`; everything must pass. The pre-commit hook
    runs the same ruff checks (and fixes what it can) when you commit.
@@ -52,12 +52,12 @@ decisions in section 9 and the risks in section 11.
 
 ## Documentation checklist
 
-| If you change... | Update |
-|------------------|--------|
-| CLI options, tools, formats, behaviour users see | [docs/usage.md](docs/usage.md) and the README summary if affected |
-| Goals, requirements, scope | [docs/requirements.md](docs/requirements.md) |
-| Structure, schema, concurrency, a design decision, a new risk | [docs/architecture.md](docs/architecture.md) |
-| Setup, tests, tooling, recipes | [docs/development.md](docs/development.md) |
+| If you change...                                              | Update                                                            |
+| ------------------------------------------------------------- | ----------------------------------------------------------------- |
+| CLI options, tools, formats, behaviour users see              | [docs/usage.md](docs/usage.md) and the README summary if affected |
+| Goals, requirements, scope                                    | [docs/requirements.md](docs/requirements.md)                      |
+| Structure, schema, concurrency, a design decision, a new risk | [docs/architecture.md](docs/architecture.md)                      |
+| Setup, tests, tooling, recipes                                | [docs/development.md](docs/development.md)                        |
 
 ## Reporting problems
 

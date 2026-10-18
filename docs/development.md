@@ -68,6 +68,9 @@ The pre-commit hook (`.pre-commit-config.yaml`, installed with `pre-commit insta
 **rejected**; review the changes, `git add` them and commit again. To run the hooks on the whole tree:
 `pre-commit run --all-files`.
 
+Markdown files are formatted with [prettier](https://prettier.io/) (`prettier --write .`); `LICENSE.md` and the
+preserved `docs/original-task-spec.md` are excluded in `.prettierignore`.
+
 The ruff version is pinned in two places that must be updated together: `ruff==...` in the `dev` extra of
 `pyproject.toml` and `rev:` in `.pre-commit-config.yaml`. `pre-commit autoupdate` bumps the hook; then align the pin.
 
