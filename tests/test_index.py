@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from server import NotesIndex, default_db_path, extract_section, parse_note
+from server import NotesIndex, default_db_path, extract_section, format_outline, parse_note
 
 
 @pytest.fixture
@@ -212,3 +212,27 @@ def test_old_schema_is_rebuilt(tmp_path, notes):
     write(notes / "a.md", "# A\nword", mtime=1000)
     idx = NotesIndex(notes, db)
     assert idx.sync()["added"] == 1  # stale mtime entry was dropped, file reindexed
+
+
+def test_get_text_served_from_index(make_index, notes):
+    text = "---\ntags: x\n---\n# T\nintro\n\n## A\nbody\n\n### A1\ndeep"
+    write(notes / "a.md", text)
+    idx = make_index()
+    idx.sync()
+    (notes / "a.md").unlink()  # prove no disk access is needed
+    assert idx.get_text("a.md") == text
+    assert idx.get_text("missing.md") is None
+
+
+def test_get_text_empty_file(make_index, notes):
+    write(notes / "e.md", "")
+    idx = make_index()
+    idx.sync()
+    assert idx.get_text("e.md") == ""
+
+
+def test_format_outline():
+    _, sections, _ = parse_note("# T\n## A\n" + "x" * 1500 + "\n### B\nshort", "t.md")
+    lines = format_outline(sections).splitlines()
+    assert lines[0].startswith("# T (") and lines[1].startswith("## A (1.5k chars)")
+    assert lines[2].startswith("### B (") and len(lines) == 3

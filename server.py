@@ -118,6 +118,16 @@ def extract_section(sections, name: str) -> list[str]:
     return out
 
 
+def format_outline(sections) -> str:
+    """Heading outline with per-section sizes, e.g. '## Deployment (1.2k chars)'."""
+    rows = []
+    for lvl, heading, body in sections:
+        if lvl:
+            size = f"{len(body) / 1000:.1f}k" if len(body) >= 1000 else str(len(body))
+            rows.append(f"{'#' * lvl} {heading} ({size} chars)")
+    return "\n".join(rows)
+
+
 class NotesIndex:
     def __init__(self, notes_dir: Path, db_path: Path, sync_interval: float = 60.0):
         self.root = notes_dir.resolve()
@@ -247,6 +257,17 @@ class NotesIndex:
                 (prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%",),
             ).fetchall()
 
+    def get_text(self, rel_path: str) -> str | None:
+        """Note text rebuilt from the indexed sections (no disk access); None if not indexed.
+
+        Line endings are normalised to \\n and a trailing newline is not preserved.
+        """
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT content FROM notes_fts WHERE rel_path = ? ORDER BY rowid", (rel_path,)
+            ).fetchall()
+        return "\n".join(r[0] for r in rows) if rows else None
+
     def links_for(self, rel_path: str):
         """Return (outgoing, unresolved, backlinks) for an indexed note, or None if not indexed."""
         self.maybe_sync()
@@ -307,8 +328,9 @@ def build_instructions(name: str, description: str) -> str:
         "'path — Note title > Section heading' plus a snippet. Plain words work; FTS5 syntax "
         "(\"phrases\", prefix*, OR, NOT) is optional. Matching is keyword-based, so retry "
         "with synonyms or related terms if nothing relevant comes back.\n"
-        "- Read only what you need: read_note(path, section=\"Section heading\") returns just "
-        "that section (and its subsections); omit section for the whole note.\n"
+        "- Read only what you need: get_outline(path) lists a note's headings with section sizes; "
+        "read_note(path, section=\"Section heading\") returns just that section (and its "
+        "subsections); omit section for the whole note.\n"
         "- Notes link to each other with [[wikilinks]] and relative .md links. Use get_links(path) "
         "to see what a note links to and which notes link back to it, and follow the graph for "
         "related context.\n"
@@ -339,26 +361,51 @@ def build_server(args) -> FastMCP:
             return "No results. Try different or fewer keywords, synonyms, or a prefix like term*."
         return "\n\n".join(f"{p} — {t}\n{s}" for p, t, s in rows)
 
+    def load_note(path: str) -> tuple[str, str]:
+        """Return (normalised path, text), served from the index when possible.
+
+        Raises ValueError for paths outside the notes root and OSError if unreadable.
+        """
+        rel = posixpath.normpath(path.replace("\\", "/"))
+        full = index.resolve(rel)
+        text = index.get_text(rel)
+        if text is None:  # not indexed yet (e.g. created since the last sync): read from disk
+            text = full.read_text(encoding="utf-8", errors="replace")
+        return rel, text
+
     @mcp.tool()
     def read_note(path: str, section: str = "") -> str:
         """Read a note by its path relative to the notes root. Pass section (a heading text,
-        e.g. from a search hit) to read only that section and its subsections."""
+        e.g. from a search hit) to read only that section and its subsections. Content comes
+        from the index, so it can be up to the sync interval out of date."""
         try:
-            full = index.resolve(path)
-            text = full.read_text(encoding="utf-8", errors="replace")
+            rel, text = load_note(path)
         except ValueError as e:
             return f"Error: {e}"
         except OSError as e:
             return f"Error: cannot read {path}: {e.strerror}"
         if not section.strip():
             return text
-        _, sections, _ = parse_note(text, Path(path).as_posix())
+        _, sections, _ = parse_note(text, rel)
         found = extract_section(sections, section)
         if found:
             return "\n\n".join(found)
-        headings = [("  " * (lvl - 1)) + h for lvl, h, _ in sections if lvl]
-        return (f"Error: no section '{section}' in {path}. Sections:\n" + "\n".join(headings)
-                if headings else f"Error: {path} has no headings.")
+        outline = format_outline(sections)
+        return (f"Error: no section '{section}' in {path}. Sections:\n{outline}"
+                if outline else f"Error: {path} has no headings.")
+
+    @mcp.tool()
+    def get_outline(path: str) -> str:
+        """Show a note's heading structure with the size of each section. Use it to pick which
+        section to read with read_note(path, section=...) instead of loading a long note whole."""
+        try:
+            rel, text = load_note(path)
+        except ValueError as e:
+            return f"Error: {e}"
+        except OSError as e:
+            return f"Error: cannot read {path}: {e.strerror}"
+        _, sections, _ = parse_note(text, rel)
+        return format_outline(sections) or "No headings."
 
     @mcp.tool()
     def list_notes(prefix: str = "") -> str:
