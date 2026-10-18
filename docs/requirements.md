@@ -138,4 +138,4 @@ extended one. Differences that exist today:
 | Only `.md` files | Configurable extensions, default all supported |
 | Single `server.py` | Package `mcp_markdown` under `src/` |
 
-The specification's author confirmed that the `list[dict]` return types and the tool names were illustrative; the plain-text results and the shorter names (`get_outline`, `sync_notes`, ...) are kept. See [review-summary.md](review-summary.md#7-outcome-of-the-review).
+The specification's author confirmed that the `list[dict]` return types and the tool names were illustrative; the plain-text results and the shorter names (`get_outline`, `sync_notes`, ...) are kept.

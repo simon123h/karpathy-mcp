@@ -85,7 +85,6 @@ Full reference: [docs/usage.md](docs/usage.md).
 | [docs/development.md](docs/development.md) | Setup, tests, conventions, recipes for new formats, tools and schema changes |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [docs/original-task-spec.md](docs/original-task-spec.md) | The original task specification this project started from |
-| [docs/review-summary.md](docs/review-summary.md) | Summary of what was built and why, including deviations from the original specification |
 | [LICENSE.md](LICENSE.md) | Apache License 2.0 |
 
 ## Project layout
