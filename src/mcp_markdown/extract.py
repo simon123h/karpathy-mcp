@@ -11,7 +11,7 @@ MAX_XML_BYTES = 64 * 1024 * 1024  # refuse zip bombs
 
 
 class ExtractError(OSError):
-    """A file could not be parsed (corrupt, encrypted, unsupported), as opposed to a transient I/O error."""
+    """A file could not be parsed (corrupt, encrypted, unsupported); not a transient I/O error."""
 
 
 def _read_xml(zf: zipfile.ZipFile, name: str, required: bool):
@@ -19,7 +19,7 @@ def _read_xml(zf: zipfile.ZipFile, name: str, required: bool):
         info = zf.getinfo(name)
     except KeyError:
         if required:
-            raise ExtractError(f"not a valid .docx (missing {name})")
+            raise ExtractError(f"not a valid .docx (missing {name})") from None
         return None
     if info.file_size > MAX_XML_BYTES:
         raise ExtractError(f"{name} is too large ({info.file_size} bytes)")
@@ -139,8 +139,14 @@ def docx_to_markdown(path: Path) -> str:
         with zipfile.ZipFile(path) as zf:
             doc = _read_xml(zf, "word/document.xml", required=True)
             styles = _read_xml(zf, "word/styles.xml", required=False)
-    except (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError, RuntimeError,
-            ET.ParseError) as e:
+    except (
+        zipfile.BadZipFile,
+        zlib.error,
+        EOFError,
+        NotImplementedError,
+        RuntimeError,
+        ET.ParseError,
+    ) as e:
         raise ExtractError(f"cannot read .docx: {e}") from e
     body = doc.find(W + "body")
     blocks: list[tuple[str, str]] = []

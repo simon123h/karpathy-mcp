@@ -29,7 +29,8 @@ STYLES = (
     '<w:style w:styleId="Kop1"><w:name w:val="heading 1"/></w:style>'  # localized id, English name
     '<w:style w:styleId="Kop2"><w:name w:val="Heading 2"/></w:style>'
     '<w:style w:styleId="Custom"><w:name w:val="My Section"/><w:basedOn w:val="Kop2"/></w:style>'
-    '<w:style w:styleId="Outl"><w:name w:val="Outlined"/><w:pPr><w:outlineLvl w:val="2"/></w:pPr></w:style>'
+    '<w:style w:styleId="Outl"><w:name w:val="Outlined"/>'
+    '<w:pPr><w:outlineLvl w:val="2"/></w:pPr></w:style>'
     '<w:style w:styleId="Title"><w:name w:val="Title"/></w:style>'
 )
 
@@ -43,11 +44,13 @@ def test_headings_lists_tables(tmp_path):
         + para("Custom section", "Custom")
         + para("Deep", "Outl")
         + "<w:tbl><w:tr><w:tc><w:p><w:r><w:t>k</w:t></w:r></w:p></w:tc>"
-          "<w:tc><w:p><w:r><w:t>v</w:t></w:r></w:p></w:tc></w:tr></w:tbl>"
+        "<w:tc><w:p><w:r><w:t>v</w:t></w:r></w:p></w:tc></w:tr></w:tbl>"
     )
     md = docx_to_markdown(make_docx(tmp_path / "a.docx", body, STYLES))
-    assert md == ("# Doc Title\n\nintro text\n\n# Setup\n\n  - a step\n\n"
-                  "## Custom section\n\n### Deep\n\nk | v")
+    assert md == (
+        "# Doc Title\n\nintro text\n\n# Setup\n\n  - a step\n\n"
+        "## Custom section\n\n### Deep\n\nk | v"
+    )
 
 
 def test_heading_ids_without_styles_xml(tmp_path):
@@ -56,12 +59,16 @@ def test_heading_ids_without_styles_xml(tmp_path):
 
 
 def test_text_details(tmp_path):
-    runs = ('<w:r><w:t>a</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t>b</w:t></w:r>'
-            '<w:del><w:r><w:delText>gone</w:delText></w:r></w:del>'
-            '<w:ins><w:r><w:t>new</w:t></w:r></w:ins><w:r><w:br/></w:r><w:r><w:t>c</w:t></w:r>')
+    runs = (
+        "<w:r><w:t>a</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t>b</w:t></w:r>"
+        "<w:del><w:r><w:delText>gone</w:delText></w:r></w:del>"
+        "<w:ins><w:r><w:t>new</w:t></w:r></w:ins><w:r><w:br/></w:r><w:r><w:t>c</w:t></w:r>"
+    )
     ppr = '<w:tabs><w:tab w:val="left" w:pos="720"/></w:tabs>'  # tab stop definition, not text
     body = para("", ppr=ppr, runs=runs) + para("# not a heading") + para("   ")
-    assert docx_to_markdown(make_docx(tmp_path / "a.docx", body)) == "a\tbnew c\n\n\\# not a heading"
+    assert (
+        docx_to_markdown(make_docx(tmp_path / "a.docx", body)) == "a\tbnew c\n\n\\# not a heading"
+    )
 
 
 def test_content_controls_are_descended(tmp_path):
@@ -98,12 +105,19 @@ def index(tmp_path):
 
 def test_docx_indexed_with_sections(index):
     notes, make = index
-    body = para("Handbook", "Kop1") + para("intro") + para("Deployment", "Kop2") + para("run the pipeline")
+    body = (
+        para("Handbook", "Kop1")
+        + para("intro")
+        + para("Deployment", "Kop2")
+        + para("run the pipeline")
+    )
     (notes / "sub").mkdir()
     make_docx(notes / "sub" / "hb.docx", body, STYLES)
     idx = make()
     assert idx.sync()["total"] == 1
-    assert [(p, t) for p, t, _ in idx.search("pipeline", 10)] == [("sub/hb.docx", "Handbook > Deployment")]
+    assert [(p, t) for p, t, _ in idx.search("pipeline", 10)] == [
+        ("sub/hb.docx", "Handbook > Deployment")
+    ]
     assert idx.list("") == [("sub/hb.docx", "Handbook")]
     text = idx.get_text("sub/hb.docx")
     _, sections, _ = parse_note(text, "sub/hb.docx")

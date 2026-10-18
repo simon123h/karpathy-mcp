@@ -11,23 +11,42 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from .index import NotesIndex
-from .parsing import (DEFAULT_EXTENSIONS, SUPPORTED_EXTENSIONS, extract_section, format_outline,
-                      parse_extensions, parse_note, read_note_file)
+from .parsing import (
+    DEFAULT_EXTENSIONS,
+    SUPPORTED_EXTENSIONS,
+    extract_section,
+    format_outline,
+    parse_extensions,
+    parse_note,
+    read_note_file,
+)
+
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description="Markdown notes MCP server (SQLite FTS5)")
     p.add_argument("--notes-dir", required=True, type=Path, help="Root directory of notes")
     p.add_argument("--name", default="markdown-notes", help="MCP server display name")
-    p.add_argument("--extensions", type=parse_extensions, default=DEFAULT_EXTENSIONS,
-                   help="Comma-separated file extensions to index (default: all supported: "
-                        f"{', '.join(SUPPORTED_EXTENSIONS)}). docx is converted to text with Word headings "
-                        "as sections; only markdown-family files contribute [[wikilinks]]/links; "
-                        "txt and rst are indexed as a single section.")
-    p.add_argument("--description", default="",
-                   help="What these notes contain; shown to the agent in the server instructions")
+    p.add_argument(
+        "--extensions",
+        type=parse_extensions,
+        default=DEFAULT_EXTENSIONS,
+        help="Comma-separated file extensions to index (default: all supported: "
+        f"{', '.join(SUPPORTED_EXTENSIONS)}). docx is converted to text with Word headings "
+        "as sections; only markdown-family files contribute [[wikilinks]]/links; "
+        "txt and rst are indexed as a single section.",
+    )
+    p.add_argument(
+        "--description",
+        default="",
+        help="What these notes contain; shown to the agent in the server instructions",
+    )
     p.add_argument("--cache-dir", type=Path, default=None, help="Location for the SQLite index")
-    p.add_argument("--sync-interval", type=float, default=60.0,
-                   help="Max seconds between automatic rescans, checked on search/list (default: 60)")
+    p.add_argument(
+        "--sync-interval",
+        type=float,
+        default=60.0,
+        help="Max seconds between automatic rescans, checked on search/list (default: 60)",
+    )
     return p.parse_args(argv)
 
 
@@ -41,22 +60,24 @@ def default_db_path(name: str, notes_dir: Path) -> Path:
 def build_instructions(name: str, description: str) -> str:
     about = f" {description.strip()}" if description.strip() else ""
     return (
-        f"Read-only knowledge base '{name}': a directory of notes (Markdown and similar text files).{about}\n\n"
+        f"Read-only knowledge base '{name}': a directory of notes "
+        f"(Markdown and similar text files).{about}\n\n"
         "How to use it:\n"
         "- Start with search_notes. It matches sections (split at headings); each hit is "
         "'path — Note title > Section heading' plus a snippet. Plain words work; FTS5 syntax "
-        "(\"phrases\", prefix*, OR, NOT) is optional. Matching is keyword-based, so retry "
+        '("phrases", prefix*, OR, NOT) is optional. Matching is keyword-based, so retry '
         "with synonyms or related terms if nothing relevant comes back.\n"
         "- Read only what you need: get_outline(path) lists a note's headings with section sizes; "
-        "read_note(path, section=\"Section heading\") returns just that section (and its "
+        'read_note(path, section="Section heading") returns just that section (and its '
         "subsections); omit section for the whole note.\n"
         "- Notes link to each other with [[wikilinks]] and relative .md links. Use get_links(path) "
         "to see what a note links to and which notes link back to it, and follow the graph for "
         "related context.\n"
         "- list_notes(prefix) shows the file tree by path prefix. Paths are always relative to "
         "the notes root, e.g. 'projects/alpha.md'.\n"
-        "- The index refreshes in the background roughly once a minute (a search never waits for it, "
-        "so a very recent edit may show up one query later); call sync_notes to force a refresh."
+        "- The index refreshes in the background roughly once a minute (a search never waits "
+        "for it, so a very recent edit may show up one query later); call sync_notes to force "
+        "a refresh."
     )
 
 
@@ -64,7 +85,9 @@ def build_server(args) -> FastMCP:
     notes_dir = args.notes_dir.expanduser().resolve()
     if not notes_dir.is_dir():
         raise SystemExit(f"--notes-dir is not a directory: {notes_dir}")
-    db_path = args.cache_dir.expanduser() if args.cache_dir else default_db_path(args.name, notes_dir)
+    db_path = (
+        args.cache_dir.expanduser() if args.cache_dir else default_db_path(args.name, notes_dir)
+    )
     if db_path.suffix != ".db":  # treat as a directory
         db_path = db_path / f"{default_db_path(args.name, notes_dir).stem}.db"
     index = NotesIndex(notes_dir, db_path, args.sync_interval, extensions=args.extensions)
@@ -72,7 +95,10 @@ def build_server(args) -> FastMCP:
 
     def with_note(text: str) -> str:
         if index.initial_sync_pending:
-            return text + "\n\n(Note: the initial indexing is still running, so results may be incomplete. Retry shortly.)"
+            return (
+                text + "\n\n(Note: the initial indexing is still running, so results may be "
+                "incomplete. Retry shortly.)"
+            )
         return text
 
     mcp = FastMCP(args.name, instructions=build_instructions(args.name, args.description))
@@ -83,7 +109,9 @@ def build_server(args) -> FastMCP:
         and a snippet per hit. Use read_note with that path (and section) to read more."""
         rows = index.search(query, max(1, min(limit, 100)))
         if not rows:
-            return with_note("No results. Try different or fewer keywords, synonyms, or a prefix like term*.")
+            return with_note(
+                "No results. Try different or fewer keywords, synonyms, or a prefix like term*."
+            )
         return with_note("\n\n".join(f"{p} — {t}\n{s}" for p, t, s in rows))
 
     def load_note(path: str) -> tuple[str, str]:
@@ -116,8 +144,11 @@ def build_server(args) -> FastMCP:
         if found:
             return "\n\n".join(found)
         outline = format_outline(sections)
-        return (f"Error: no section '{section}' in {path}. Sections:\n{outline}"
-                if outline else f"Error: {path} has no headings.")
+        return (
+            f"Error: no section '{section}' in {path}. Sections:\n{outline}"
+            if outline
+            else f"Error: {path} has no headings."
+        )
 
     @mcp.tool()
     def get_outline(path: str) -> str:
@@ -160,8 +191,10 @@ def build_server(args) -> FastMCP:
     def sync_notes() -> str:
         """Re-scan the notes directory now and update the index with changes."""
         s = index.sync()
-        return (f"Synced: {s['added']} added, {s['updated']} updated, "
-                f"{s['removed']} removed ({s['total']} total).")
+        return (
+            f"Synced: {s['added']} added, {s['updated']} updated, "
+            f"{s['removed']} removed ({s['total']} total)."
+        )
 
     return mcp
 

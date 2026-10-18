@@ -37,8 +37,14 @@ CREATE INDEX IF NOT EXISTS links_target ON links (target);
 
 
 class NotesIndex:
-    def __init__(self, notes_dir: Path, db_path: Path, sync_interval: float = 60.0,
-                 startup_wait: float = 10.0, extensions: tuple[str, ...] = DEFAULT_EXTENSIONS):
+    def __init__(
+        self,
+        notes_dir: Path,
+        db_path: Path,
+        sync_interval: float = 60.0,
+        startup_wait: float = 10.0,
+        extensions: tuple[str, ...] = DEFAULT_EXTENSIONS,
+    ):
         self.root = notes_dir.resolve()
         self.extensions = frozenset(extensions)
         self.sync_interval = sync_interval
@@ -76,7 +82,11 @@ class NotesIndex:
                         if entry.is_dir(follow_symlinks=False):
                             if not entry.name.startswith("."):
                                 stack.append(Path(entry.path))
-                        elif entry.is_file() and not entry.name.startswith("~$") and os.path.splitext(entry.name)[1][1:].lower() in self.extensions:
+                        elif (
+                            entry.is_file()
+                            and not entry.name.startswith("~$")
+                            and os.path.splitext(entry.name)[1][1:].lower() in self.extensions
+                        ):
                             rel = Path(entry.path).relative_to(self.root).as_posix()
                             found[rel] = entry.stat().st_mtime
             except OSError as e:
@@ -93,7 +103,7 @@ class NotesIndex:
             return self._sync_locked()
 
     def _sync_locked(self) -> dict[str, int]:
-        """Directory walk and file reads run without the DB lock so searches are never blocked by slow I/O."""
+        """Walk and read files without the DB lock, so searches never wait on I/O."""
         t0 = time.monotonic()
         try:
             on_disk = self._scan()
@@ -105,7 +115,9 @@ class NotesIndex:
                     continue
                 try:
                     text = read_note_file(self.root / rel)
-                except ExtractError as e:  # permanently unreadable: index as empty so it isn't retried every sync
+                except (
+                    ExtractError
+                ) as e:  # permanently unreadable: index as empty so it isn't retried every sync
                     log.warning("Cannot extract %s (indexed as empty): %s", rel, e)
                     text = ""
                 except OSError as e:
@@ -116,10 +128,13 @@ class NotesIndex:
             with self.lock:
                 for rel, mtime, title, sections, links in loaded:
                     self._drop(rel)
-                    for n, (level, heading, body) in enumerate(sections):
+                    for n, (_level, heading, body) in enumerate(sections):
                         # first chunk carries the bare note title (used for listings)
-                        chunk_title = title if n == 0 or not heading or heading == title \
+                        chunk_title = (
+                            title
+                            if n == 0 or not heading or heading == title
                             else f"{title} > {heading}"
+                        )
                         self.db.execute(
                             "INSERT INTO notes_fts (rel_path, title, content) VALUES (?, ?, ?)",
                             (rel, chunk_title, body),
@@ -129,8 +144,10 @@ class NotesIndex:
                             "INSERT INTO notes_fts (rel_path, title, content) VALUES (?, ?, '')",
                             (rel, title),
                         )
-                    self.db.executemany("INSERT INTO links (src, target) VALUES (?, ?)",
-                                        [(rel, t) for t in sorted(links)])
+                    self.db.executemany(
+                        "INSERT INTO links (src, target) VALUES (?, ?)",
+                        [(rel, t) for t in sorted(links)],
+                    )
                     self.db.execute(
                         "INSERT OR REPLACE INTO file_meta (rel_path, mtime) VALUES (?, ?)",
                         (rel, mtime),
@@ -139,13 +156,18 @@ class NotesIndex:
                     self._drop(rel)
                     self.db.execute("DELETE FROM file_meta WHERE rel_path = ?", (rel,))
                 self.db.commit()
-            stats = {"added": sum(1 for x in loaded if x[0] not in known),
-                     "updated": sum(1 for x in loaded if x[0] in known),
-                     "removed": len(removed_paths), "total": len(on_disk)}
+            stats = {
+                "added": sum(1 for x in loaded if x[0] not in known),
+                "updated": sum(1 for x in loaded if x[0] in known),
+                "removed": len(removed_paths),
+                "total": len(on_disk),
+            }
             log.info("sync: %s in %.2fs", stats, time.monotonic() - t0)
             return stats
         finally:
-            self.last_sync = time.monotonic()  # also after a failure, so errors don't retrigger every search
+            self.last_sync = (
+                time.monotonic()
+            )  # also after a failure, so errors don't retrigger every search
             self.ready.set()
 
     def _background_sync(self) -> None:
@@ -157,7 +179,7 @@ class NotesIndex:
             self.sync_lock.release()
 
     def maybe_sync(self) -> None:
-        """If the index is older than sync_interval, start a background rescan (never blocks the caller)."""
+        """If the index is older than sync_interval, start a background rescan (never blocks)."""
         if time.monotonic() - self.last_sync < self.sync_interval:
             return
         if self.sync_lock.acquire(blocking=False):  # released by _background_sync
@@ -175,7 +197,7 @@ class NotesIndex:
         return not self.ready.is_set()
 
     def _prepare(self) -> None:
-        """Kick off a stale-index refresh; before the first sync has finished, wait for it (bounded)."""
+        """Refresh a stale index in the background; before the first sync, wait for it (bounded)."""
         self.maybe_sync()
         if not self.ready.is_set():
             self.ready.wait(self.startup_wait)
@@ -184,12 +206,13 @@ class NotesIndex:
         with self.lock:
             return self.db.execute(
                 "SELECT rel_path, title, snippet(notes_fts, 2, '**', '**', '…', 24) "
-                "FROM notes_fts WHERE notes_fts MATCH ? ORDER BY bm25(notes_fts, 0, 5.0, 1.0) LIMIT ?",
+                "FROM notes_fts WHERE notes_fts MATCH ? "
+                "ORDER BY bm25(notes_fts, 0, 5.0, 1.0) LIMIT ?",
                 (fts_query, limit),
             ).fetchall()
 
     def search(self, query: str, limit: int) -> list[tuple[str, str, str]]:
-        """Search sections. Raw FTS5 syntax first; on a syntax error, retry with plain quoted terms."""
+        """Search sections. Raw FTS5 syntax first; on a syntax error retry with quoted terms."""
         self._prepare()
         try:
             return self._match(query, limit)
@@ -237,7 +260,9 @@ class NotesIndex:
                 return by_path.get(target) or by_stem.get(target)
 
             outgoing, unresolved = [], []
-            for (t,) in self.db.execute("SELECT target FROM links WHERE src = ? ORDER BY target", (rel_path,)):
+            for (t,) in self.db.execute(
+                "SELECT target FROM links WHERE src = ? ORDER BY target", (rel_path,)
+            ):
                 dest = resolve(t)
                 if dest is None:
                     unresolved.append(t)
@@ -245,9 +270,13 @@ class NotesIndex:
                     outgoing.append(dest)
             me = strip_ext(rel_path.lower())
             keys = (me, posixpath.basename(me))
-            backlinks = sorted({
-                src for src, t in self.db.execute(
-                    "SELECT src, target FROM links WHERE target IN (?, ?)", keys)
-                if src != rel_path and resolve(t) == rel_path
-            })
+            backlinks = sorted(
+                {
+                    src
+                    for src, t in self.db.execute(
+                        "SELECT src, target FROM links WHERE target IN (?, ?)", keys
+                    )
+                    if src != rel_path and resolve(t) == rel_path
+                }
+            )
             return outgoing, unresolved, backlinks

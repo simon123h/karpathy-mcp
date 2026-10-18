@@ -7,8 +7,7 @@ import time
 import pytest
 
 from mcp_markdown.index import NotesIndex
-from mcp_markdown.parsing import (extract_section, format_outline, parse_extensions,
-                                  parse_note)
+from mcp_markdown.parsing import extract_section, format_outline, parse_extensions, parse_note
 from mcp_markdown.server import default_db_path
 
 
@@ -23,6 +22,7 @@ def notes(tmp_path):
 def make_index(tmp_path, notes):
     def make(**kw):
         return NotesIndex(notes, tmp_path / "cache" / "t.db", **kw)
+
     return make
 
 
@@ -71,8 +71,9 @@ def test_unchanged_files_not_reread(make_index, notes, monkeypatch):
     idx.sync()
     reads = []
     orig = type(notes).read_text
-    monkeypatch.setattr(type(notes), "read_text",
-                        lambda self, *a, **k: reads.append(self) or orig(self, *a, **k))
+    monkeypatch.setattr(
+        type(notes), "read_text", lambda self, *a, **k: reads.append(self) or orig(self, *a, **k)
+    )
     assert idx.sync() == {"added": 0, "updated": 0, "removed": 0, "total": 1}
     assert reads == []
 
@@ -139,7 +140,9 @@ def test_stale_index_refreshes_in_background(make_index, notes):
     write(notes / "new.md", "latecomer")
     assert idx.search("latecomer", 10) == []  # inside the window
     idx.last_sync -= 3601
-    assert idx.search("latecomer", 10) == []  # stale-while-revalidate: this query kicks off the rescan
+    assert (
+        idx.search("latecomer", 10) == []
+    )  # stale-while-revalidate: this query kicks off the rescan
     assert idx.wait_idle()
     assert len(idx.search("latecomer", 10)) == 1
 
@@ -186,8 +189,10 @@ def test_first_search_waits_bounded_for_initial_sync(make_index, notes, monkeypa
 
 def test_failed_sync_does_not_retrigger_or_block(make_index, monkeypatch):
     idx = make_index(sync_interval=3600, startup_wait=1)
+
     def boom():
         raise OSError("disk gone")
+
     monkeypatch.setattr(idx, "_scan", boom)
     assert idx.search("x", 10) == []  # waits for the (failed) first attempt, then returns
     assert idx.wait_idle() and not idx.initial_sync_pending
@@ -210,7 +215,9 @@ def test_sections_are_separate_hits(make_index, notes):
 
 
 def test_headings_in_code_fences_and_frontmatter_ignored(make_index, notes):
-    write(notes / "a.md", "---\n# yaml comment\ntags: x\n---\n# Real\n```\n# not a heading\n```\nbody")
+    write(
+        notes / "a.md", "---\n# yaml comment\ntags: x\n---\n# Real\n```\n# not a heading\n```\nbody"
+    )
     title, sections, _ = parse_note((notes / "a.md").read_text(), "a.md")
     assert title == "Real"
     assert [h for lvl, h, _ in sections if lvl] == ["Real"]
@@ -236,7 +243,10 @@ def test_reindex_replaces_old_sections(make_index, notes):
 
 
 def test_links_and_backlinks(make_index, notes):
-    write(notes / "index.md", "# Index\nsee [[Alpha]] and [b](sub/beta.md) and [[ghost]] and [[alpha|A]]")
+    write(
+        notes / "index.md",
+        "# Index\nsee [[Alpha]] and [b](sub/beta.md) and [[ghost]] and [[alpha|A]]",
+    )
     write(notes / "Alpha.md", "# Alpha\n[[sub/Beta#part]]\n```\n[[ignored]]\n```")
     write(notes / "sub" / "beta.md", "# Beta\nback to [i](../index.md)")
     idx = make_index()
@@ -262,8 +272,10 @@ def test_backlinks_respect_ambiguous_stems(make_index, notes):
 def test_old_schema_is_rebuilt(tmp_path, notes):
     db = tmp_path / "old.db"
     conn = sqlite3.connect(db)
-    conn.executescript("CREATE TABLE file_meta (rel_path TEXT PRIMARY KEY, mtime REAL);"
-                       "INSERT INTO file_meta VALUES ('a.md', 1000);")
+    conn.executescript(
+        "CREATE TABLE file_meta (rel_path TEXT PRIMARY KEY, mtime REAL);"
+        "INSERT INTO file_meta VALUES ('a.md', 1000);"
+    )
     conn.commit()
     conn.close()
     write(notes / "a.md", "# A\nword", mtime=1000)
@@ -322,10 +334,12 @@ def test_plain_text_is_one_section_without_headings():
 
 
 def test_org_sections_tags_and_blocks():
-    text = "#+TITLE: x\n* Top  :work:\nintro\n** Sub\n#+BEGIN_SRC sh\n* not a heading\n#+END_SRC\ntail"
+    text = (
+        "#+TITLE: x\n* Top  :work:\nintro\n** Sub\n#+BEGIN_SRC sh\n* not a heading\n#+END_SRC\ntail"
+    )
     title, sections, links = parse_note(text, "a.org")
     assert title == "Top" and links == set()
-    assert [(l, h) for l, h, _ in sections] == [(0, ""), (1, "Top"), (2, "Sub")]
+    assert [(lvl, h) for lvl, h, _ in sections] == [(0, ""), (1, "Top"), (2, "Sub")]
     assert "* not a heading" in sections[2][2]
 
 
@@ -333,7 +347,7 @@ def test_asciidoc_sections_and_listing_blocks():
     text = "= Doc\npre\n== Setup\n----\n== nope\n----\nafter"
     title, sections, _ = parse_note(text, "a.adoc")
     assert title == "Doc"
-    assert [(l, h) for l, h, _ in sections] == [(1, "Doc"), (2, "Setup")]
+    assert [(lvl, h) for lvl, h, _ in sections] == [(1, "Doc"), (2, "Setup")]
 
 
 def test_links_between_formats(make_index, notes):
