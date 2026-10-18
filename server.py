@@ -9,6 +9,7 @@ import re
 import sqlite3
 import sys
 import threading
+import time
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
@@ -33,8 +34,10 @@ HEADING_RE = re.compile(r"^\s*#\s+(.+?)\s*$", re.MULTILINE)
 
 
 class NotesIndex:
-    def __init__(self, notes_dir: Path, db_path: Path):
+    def __init__(self, notes_dir: Path, db_path: Path, sync_interval: float = 60.0):
         self.root = notes_dir.resolve()
+        self.sync_interval = sync_interval
+        self.last_sync = 0.0
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.lock = threading.Lock()
@@ -102,10 +105,17 @@ class NotesIndex:
             self.db.commit()
             stats = {"added": added, "updated": updated, "removed": len(removed_paths),
                      "total": len(on_disk)}
+            self.last_sync = time.monotonic()
             log.info("sync: %s", stats)
             return stats
 
+    def maybe_sync(self) -> None:
+        """Resync if the last scan is older than sync_interval (metadata-only when nothing changed)."""
+        if time.monotonic() - self.last_sync >= self.sync_interval:
+            self.sync()
+
     def search(self, query: str, limit: int) -> list[tuple[str, str, str]]:
+        self.maybe_sync()
         with self.lock:
             return self.db.execute(
                 "SELECT rel_path, title, snippet(notes_fts, 2, '**', '**', '…', 24) "
@@ -114,6 +124,7 @@ class NotesIndex:
             ).fetchall()
 
     def list(self, prefix: str) -> list[tuple[str, str]]:
+        self.maybe_sync()
         with self.lock:
             return self.db.execute(
                 "SELECT rel_path, title FROM notes_fts WHERE rel_path LIKE ? ESCAPE '\\' ORDER BY rel_path",
@@ -126,6 +137,8 @@ def parse_args(argv=None):
     p.add_argument("--notes-dir", required=True, type=Path, help="Root directory of Markdown notes")
     p.add_argument("--name", default="markdown-notes", help="MCP server display name")
     p.add_argument("--cache-dir", type=Path, default=None, help="Location for the SQLite index")
+    p.add_argument("--sync-interval", type=float, default=60.0,
+                   help="Max seconds between automatic rescans, checked on search/list (default: 60)")
     return p.parse_args(argv)
 
 
@@ -143,7 +156,7 @@ def build_server(args) -> FastMCP:
     db_path = args.cache_dir.expanduser() if args.cache_dir else default_db_path(args.name, notes_dir)
     if db_path.suffix != ".db":  # treat as a directory
         db_path = db_path / f"{default_db_path(args.name, notes_dir).stem}.db"
-    index = NotesIndex(notes_dir, db_path)
+    index = NotesIndex(notes_dir, db_path, args.sync_interval)
     index.sync()
 
     mcp = FastMCP(args.name)
