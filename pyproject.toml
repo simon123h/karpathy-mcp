@@ -15,3 +15,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 py-modules = ["server"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
