@@ -83,7 +83,7 @@ Status: **Done** = implemented and covered by tests; **Partial** = implemented w
 | Q-2 | Performance | Unchanged files are not read again during a rescan. | `test_unchanged_files_not_reread` |
 | Q-3 | Performance | Reading an indexed note or section requires no file access. | `test_get_text_served_from_index` |
 | Q-4 | Efficiency | Typical tool answers should be small: snippets of about 24 tokens, section reads instead of whole notes, outlines before reads. | design; manual |
-| Q-5 | Security | No tool argument may reach a file outside the notes directory (`..`, absolute paths, symlinks). | `test_resolve_rejects_traversal`, `test_resolve_rejects_symlink_escape` |
+| Q-5 | Security | Neither a tool argument nor the scan may reach a file outside the notes directory (`..`, absolute paths, symlinks). | `test_resolve_rejects_traversal`, `test_resolve_rejects_symlink_escape`, `test_scan_skips_symlinks_outside_root`, `test_scan_does_not_follow_symlinked_directories` |
 | Q-6 | Robustness | Invalid UTF-8 is replaced, not fatal; one broken file never aborts a sync; a failed background sync does not retrigger on every query. | `test_invalid_utf8_replaced`, `test_failed_sync_does_not_retrigger_or_block`, `test_corrupt_docx_indexed_empty_and_not_retried` |
 | Q-7 | Protocol safety | Nothing but MCP traffic may be written to stdout. Logging goes to stderr. | design (no `print`); manual |
 | Q-8 | Portability | Linux, macOS and Windows; Python 3.10+. | developed and tested on Linux with Python 3.12 only |

@@ -135,7 +135,8 @@ finished, `_prepare()` also waits up to `startup_wait` (10 s) for the `ready` ev
 ### 6.3 Synchronization
 
 1. Walk the tree iteratively with `os.scandir`: skip hidden directories and symlinked directories; keep files
-   whose extension is selected and whose name does not start with `~$`; record `st_mtime`.
+   whose extension is selected and whose name does not start with `~$`; skip symlinks to files that resolve
+   outside the notes root (logged); record `st_mtime`.
 2. Compare with `file_meta`. Changed means: new, or mtime not equal.
 3. For each changed file, read (docx: convert) and `parse_note`, with no database lock held. `ExtractError`
    (corrupt file) is logged and the file is indexed as empty; other `OSError`s skip the file for this round.
@@ -178,7 +179,8 @@ instance gets its own cache file, named from `--name` and a hash of the notes di
 
 **Path safety.** Tool paths are normalized (backslashes, `.`/`..`) and resolved against the notes root;
 anything resolving outside raises an error before any access. Reads of indexed notes use the normalized relative
-path purely as a database key.
+path purely as a database key. The scan applies the same containment to symlinked files and does not follow
+symlinked directories.
 
 **Logging and stdout.** `logging` is configured to stderr only in `main()`. There is no `print` anywhere in the
 package.
@@ -236,7 +238,6 @@ Quality requirement IDs and the tests that verify them: [requirements.md, sectio
 
 | ID | Risk / debt | Impact | Possible remedy |
 |----|-------------|--------|-----------------|
-| R-2 | The scan follows symlinks to **files**, so a link inside the notes directory to a file outside gets indexed and becomes searchable. Tool arguments are contained; the sync is not. | Information exposure from a hostile or careless notes directory. | Skip symlinks that resolve outside the root. |
 | R-3 | The tool contract differs from the original specification (names, return types, defaults). | Consumers written against the specification break. | Align or document; owner decision. |
 | R-4 | Each rescan walks the whole tree. Cost on the slow host is unmeasured. | Background I/O load on slow disks. | Use the logged durations; adaptive interval; larger `--sync-interval`. |
 | R-5 | Reads and searches can be one interval stale; deleted notes stay readable until the next sync. | Agent sees outdated content. | Acceptable by requirement; `sync_notes` for immediate refresh. |

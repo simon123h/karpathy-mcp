@@ -75,7 +75,8 @@ Use absolute paths. If the command is not on the client's `PATH`, give the full 
 | `docx` | Word heading styles (including localized and custom heading styles) | none | Converted to text first. Tables become `a \| b` rows, list items `- `. Images, headers/footers, footnotes and comments are not extracted. Word's `~$` lock files are skipped. |
 
 A note's **title** is its first level-1 heading, otherwise the file name without extension. Hidden directories
-(names starting with `.`) and symbolic links to directories are not scanned. Links can point to a note of any
+(names starting with `.`) and symbolic links to directories are not scanned; symbolic links to files are
+indexed only if they point inside the notes directory (others are skipped with a warning). Links can point to a note of any
 format; if two notes share a name (`a.md`, `a.txt`), a bare `[[a]]` resolves to the first path alphabetically.
 
 ## Tools

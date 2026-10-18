@@ -118,6 +118,36 @@ def test_resolve_rejects_symlink_escape(make_index, notes, tmp_path):
         make_index().resolve("link/s.md")
 
 
+def symlink(link, target):
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks are not available on this platform")
+
+
+def test_scan_skips_symlinks_outside_root(make_index, notes, tmp_path):
+    outside = tmp_path / "secret.md"
+    outside.write_text("# Secret\ntopsecret")
+    write(notes / "real.md", "# Real\nvisible")
+    symlink(notes / "leak.md", outside)
+    symlink(notes / "alias.md", notes / "real.md")  # inside the root: fine
+    idx = make_index()
+    assert idx.sync()["total"] == 2
+    assert [p for p, _ in idx.list("")] == ["alias.md", "real.md"]
+    assert idx.search("topsecret", 10) == []
+
+
+def test_scan_does_not_follow_symlinked_directories(make_index, notes, tmp_path):
+    outside = tmp_path / "other"
+    write(outside / "x.md", "# X\nelsewhere")
+    write(notes / "real" / "y.md", "# Y")
+    symlink(notes / "linkdir", outside)
+    symlink(notes / "innerlink", notes / "real")
+    idx = make_index()
+    assert idx.sync()["total"] == 1  # only real/y.md
+    assert idx.search("elsewhere", 10) == []
+
+
 def test_invalid_fts_query_falls_back_to_plain_terms(make_index, notes):
     write(notes / "a.md", "# T\nfoo-bar and baz: qux")
     idx = make_index()

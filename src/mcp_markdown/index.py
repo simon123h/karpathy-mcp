@@ -71,6 +71,12 @@ class NotesIndex:
             raise ValueError(f"Path escapes notes directory: {rel_path}")
         return full
 
+    def _inside_root(self, path: str) -> bool:
+        try:
+            return Path(path).resolve().is_relative_to(self.root)
+        except (OSError, RuntimeError):  # unresolvable, e.g. a symlink loop
+            return False
+
     def _scan(self) -> dict[str, float]:
         found: dict[str, float] = {}
         stack = [self.root]
@@ -87,6 +93,11 @@ class NotesIndex:
                             and not entry.name.startswith("~$")
                             and os.path.splitext(entry.name)[1][1:].lower() in self.extensions
                         ):
+                            if entry.is_symlink() and not self._inside_root(entry.path):
+                                log.warning(
+                                    "Skipping symlink outside the notes directory: %s", entry.path
+                                )
+                                continue
                             rel = Path(entry.path).relative_to(self.root).as_posix()
                             found[rel] = entry.stat().st_mtime
             except OSError as e:
